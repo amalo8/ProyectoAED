@@ -1,0 +1,24 @@
+---
+title: "vinculacion_tablas"
+output: html_document
+date: "2025-10-27"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+datos_calidad<-read.csv("data/rvvcca.csv",sep=";",header=TRUE)
+datos_2023<-read.table("data/MDEST462500492023.txt",sep = "\t",dec=",",header=FALSE,skip = 5) # Saltando las tres líneas de metadatos
+
+nombres_columnas <- c("Fecha", "Velocidad (m/s)", "Direccion (º)", "Temperatura (ºC)", 
+                      "Humedad_Relativa (%)", "Presion (mb)", "Radiacion_Solar (W/m2)", 
+                      "Precipitacion (l/m2)", "Velocidad_Max (m/s)")
+
+names(datos_2023)<-nombres_columnas
+
+#que estaciones hay en el dataset1
+unique(datos_calidad$Estacion)
+```
+
