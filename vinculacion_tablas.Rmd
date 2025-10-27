@@ -38,7 +38,7 @@ datos_2023 <- read.csv("data/2023/MDEST462500472023_AVFRANCIA.csv",
                        header = FALSE,
                        skip = 5) 
 
-# names(datos_2023) <- nombres
+names(datos_2023) <- nombres
 # print("NOMBRES 2023")
 # print(names(datos_2023))
 # print("NOMBRES DATOS CALIDAD")
@@ -90,7 +90,7 @@ datos_2024 <- read.csv("data/2024/MDEST462500472024_AVFRANCIA.csv",
                        header = FALSE,
                        skip = 5) 
 
-# names(datos_2024) <- nombres
+names(datos_2024) <- nombres
 # print("NOMBRES 2024")
 # print(names(datos_2023))
 # print("NOMBRES DATOS CALIDAD")
@@ -145,7 +145,7 @@ datos_2025 <- read.csv("data/2025/MDEST462500472025_AVFRANCIA.csv",
                        header = FALSE,
                        skip = 5) 
 
-# names(datos_2025) <- nombres
+names(datos_2025) <- nombres
 # print("NOMBRES 2025")
 # print(names(datos_2025))
 # print("NOMBRES DATOS CALIDAD")
@@ -210,7 +210,7 @@ datos_2023 <- read.csv("data/2023/MDEST462500302023_PISTASILLA.csv",
                        header = FALSE,
                        skip = 5) 
 
-# names(datos_2023) <- nombres
+names(datos_2023) <- nombres
 # print("NOMBRES 2023")
 # print(names(datos_2023))
 # print("NOMBRES DATOS CALIDAD")
@@ -255,7 +255,7 @@ datos_2024 <- read.csv("data/2024/MDEST462500302024_PISTASILLA.csv",
                        header = FALSE,
                        skip = 5) 
 
-# names(datos_2024) <- nombres
+names(datos_2024) <- nombres
 # print("NOMBRES 2024")
 # print(names(datos_2023))
 # print("NOMBRES DATOS CALIDAD")
@@ -300,7 +300,7 @@ datos_2025 <- read.csv("data/2025/MDEST462500302025_PISTASILLA.csv",
                        header = FALSE,
                        skip = 5) 
 
-# names(datos_2025) <- nombres
+names(datos_2025) <- nombres
 # print("NOMBRES 2025")
 # print(names(datos_2025))
 # print("NOMBRES DATOS CALIDAD")
@@ -362,7 +362,7 @@ datos_2023 <- read.csv("data/2023/MDEST462500432023_VIVEROS.csv",
                        header = FALSE,
                        skip = 5) 
 
-# names(datos_2023) <- nombres
+names(datos_2023) <- nombres
 # print("NOMBRES 2023")
 # print(names(datos_2023))
 # print("NOMBRES DATOS CALIDAD")
@@ -407,7 +407,7 @@ datos_2024 <- read.csv("data/2024/MDEST462500432024_VIVEROS.csv",
                        header = FALSE,
                        skip = 5) 
 
-# names(datos_2024) <- nombres
+names(datos_2024) <- nombres
 # print("NOMBRES 2024")
 # print(names(datos_2023))
 # print("NOMBRES DATOS CALIDAD")
@@ -452,7 +452,7 @@ datos_2025 <- read.csv("data/2025/MDEST462500432025_VIVEROS.csv",
                        header = FALSE,
                        skip = 5) 
 
-# names(datos_2025) <- nombres
+names(datos_2025) <- nombres
 # print("NOMBRES 2025")
 # print(names(datos_2025))
 # print("NOMBRES DATOS CALIDAD")
@@ -512,7 +512,7 @@ datos_2023 <- read.csv("data/2023/MDEST462500462023_POLITECNIC.csv",
                        header = FALSE,
                        skip = 5) 
 
-# names(datos_2023) <- nombres
+names(datos_2023) <- nombres
 # print("NOMBRES 2023")
 # print(names(datos_2023))
 # print("NOMBRES DATOS CALIDAD")
@@ -557,7 +557,7 @@ datos_2024 <- read.csv("data/2024/MDEST462500462024_POLITECNIC.csv",
                        header = FALSE,
                        skip = 5) 
 
-# names(datos_2024) <- nombres
+names(datos_2024) <- nombres
 # print("NOMBRES 2024")
 # print(names(datos_2023))
 # print("NOMBRES DATOS CALIDAD")
@@ -602,7 +602,7 @@ datos_2025 <- read.csv("data/2025/MDEST462500462025_POLITECNIC.csv",
                        header = FALSE,
                        skip = 5) 
 # 
-# names(datos_2025) <- nombres
+names(datos_2025) <- nombres
 # print("NOMBRES 2025")
 # print(names(datos_2025))
 # print("NOMBRES DATOS CALIDAD")
@@ -644,7 +644,153 @@ print(nrow(datos_combinados))
 
 ```
 #MOLIDELSOL
+```{r}
+#guardar variable datos comnados anterior para emplear luego al hacer la suma final de filas
+datos_combinados_anterior <- datos_combinados
 
+#    Leemos solo 1 línea (nrows=1) y saltamos las 3 líneas de metadatos.
+nombres <- read.csv("data/2023/MDEST462500482023_MOLIDELSOL.csv", 
+                        sep = "\t", dec = ",", 
+                        header = FALSE, 
+                        skip = 3, 
+                        nrows = 1)
+
+#Leer los DATOS, saltando las 4 líneas de encabezados + unidades
+#Saltamos las 3 líneas de metadatos + la línea de nombres (4) + la línea de unidades (5).
+datos_2023 <- read.csv("data/2023/MDEST462500482023_MOLIDELSOL.csv", 
+                       sep = "\t", dec = ",", 
+                       header = FALSE,
+                       skip = 5) 
+
+names(datos_2023) <- nombres
+# print("NOMBRES 2023")
+# print(names(datos_2023))
+# print("NOMBRES DATOS CALIDAD")
+# print(names(datos_calidad))
+
+
+library(dplyr)
+
+# A. Estandarizar NOMBRES 2023 (Datos Meteorológicos)
+# Asumimos que estos nombres ya están asignados a datos_2023
+# Solo vamos a renombrar las variables de meteo a nombres más claros:
+datos_2023 <- datos_2023 %>%
+  rename(
+    Fecha=FECHA)
+
+# Agregar columna Estacion como "Moli del Sol"
+datos_2023 <- datos_2023 %>%
+  mutate(Estacion = "Moli del Sol")
+
+datos_combinados <- bind_rows(datos_combinados_anterior, datos_2023)
+
+# 2. Crear la nueva columna 'Id' secuencial
+datos_combinados <- datos_combinados %>%
+  # Creamos una nueva columna 'Id' que asigna un número de fila secuencial
+  # a todo el conjunto de datos combinado.
+  mutate(Id = row_number()) %>%
+  # Opcional: Reordenar las columnas para que 'Id' sea la primera
+  select(Id, everything())
+
+
+#    Leemos solo 1 línea (nrows=1) y saltamos las 3 líneas de metadatos.
+nombres <- read.csv("data/2024/MDEST462500482024_MOLIDELSOL.csv", 
+                        sep = "\t", dec = ",", 
+                        header = FALSE, 
+                        skip = 3, 
+                        nrows = 1)
+
+#Leer los DATOS, saltando las 4 líneas de encabezados + unidades
+#Saltamos las 3 líneas de metadatos + la línea de nombres (4) + la línea de unidades (5).
+datos_2024 <- read.csv("data/2024/MDEST462500482024_MOLIDELSOL.csv", 
+                       sep = "\t", dec = ",", 
+                       header = FALSE,
+                       skip = 5) 
+
+names(datos_2024) <- nombres
+# print("NOMBRES 2024")
+# print(names(datos_2023))
+# print("NOMBRES DATOS CALIDAD")
+# print(names(datos_calidad))
+
+
+library(dplyr)
+
+# A. Estandarizar NOMBRES 2024 (Datos Meteorológicos)
+# Asumimos que estos nombres ya están asignados a datos_2023
+# Solo vamos a renombrar las variables de meteo a nombres más claros:
+datos_2024 <- datos_2024 %>%
+  rename(
+    Fecha=FECHA)
+
+# Agregar columna Estacion como "Moli del Sol"
+datos_2024 <- datos_2024 %>%
+  mutate(Estacion = "Moli del Sol")
+
+datos_combinados <- bind_rows(datos_combinados, datos_2024)
+
+# 2. Crear la nueva columna 'Id' secuencial
+datos_combinados <- datos_combinados %>%
+  # Creamos una nueva columna 'Id' que asigna un número de fila secuencial
+  # a todo el conjunto de datos combinado.
+  mutate(Id = row_number()) %>%
+  # Opcional: Reordenar las columnas para que 'Id' sea la primera
+  select(Id, everything())
+
+
+#    Leemos solo 1 línea (nrows=1) y saltamos las 3 líneas de metadatos.
+nombres <- read.csv("data/2025/MDEST462500482025_MOLIDELSOL.csv", 
+                        sep = "\t", dec = ",", 
+                        header = FALSE, 
+                        skip = 3, 
+                        nrows = 1)
+
+#Leer los DATOS, saltando las 4 líneas de encabezados + unidades
+#Saltamos las 3 líneas de metadatos + la línea de nombres (4) + la línea de unidades (5).
+datos_2025 <- read.csv("data/2025/MDEST462500482025_MOLIDELSOL.csv", 
+                       sep = "\t", dec = ",", 
+                       header = FALSE,
+                       skip = 5) 
+# 
+names(datos_2025) <- nombres
+# print("NOMBRES 2025")
+# print(names(datos_2025))
+# print("NOMBRES DATOS CALIDAD")
+# print(names(datos_calidad))
+
+
+library(dplyr)
+
+# A. Estandarizar NOMBRES 2025 (Datos Meteorológicos)
+# Asumimos que estos nombres ya están asignados a datos_2023
+# Solo vamos a renombrar las variables de meteo a nombres más claros:
+datos_2025 <- datos_2025 %>%
+  rename(
+    Fecha=FECHA)
+
+# Agregar columna Estacion como "Moli del Sol"
+datos_2025 <- datos_2025 %>%
+  mutate(Estacion = "Moli del Sol")
+
+datos_combinados <- bind_rows(datos_combinados, datos_2025)
+
+# 2. Crear la nueva columna 'Id' secuencial
+datos_combinados <- datos_combinados %>%
+  # Creamos una nueva columna 'Id' que asigna un número de fila secuencial
+  # a todo el conjunto de datos combinado.
+  mutate(Id = row_number()) %>%
+  # Opcional: Reordenar las columnas para que 'Id' sea la primera
+  select(Id, everything())
+
+# Verificación
+# 1. Mira las últimas filas (deberían ser las de 2024)
+# head(datos_combinados) 
+# tail(datos_combinados)
+
+#El  numero de filas de datos combinados debe ser igual a la suma de las filas de los datasets individuales
+print(nrow(datos_combinados_anterior)+nrow(datos_2023)+nrow(datos_2024)+nrow(datos_2025))
+print(nrow(datos_combinados))
+```
 #CONSELLERIA
 #BULEVARDSUD
 #CENTRO
