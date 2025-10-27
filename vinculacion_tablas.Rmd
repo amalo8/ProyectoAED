@@ -10,15 +10,55 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 datos_calidad<-read.csv("data/rvvcca.csv",sep=";",header=TRUE)
-datos_2023<-read.table("data/MDEST462500492023.txt",sep = "\t",dec=",",header=FALSE,skip = 5) # Saltando las tres líneas de metadatos
 
-nombres_columnas <- c("Fecha", "Velocidad (m/s)", "Direccion (º)", "Temperatura (ºC)", 
-                      "Humedad_Relativa (%)", "Presion (mb)", "Radiacion_Solar (W/m2)", 
-                      "Precipitacion (l/m2)", "Velocidad_Max (m/s)")
+#    Leemos solo 1 línea (nrows=1) y saltamos las 3 líneas de metadatos.
+nombres <- read.csv("data/2023/MDEST462500472023_AVFRANCIA.csv", 
+                        sep = "\t", dec = ",", 
+                        header = FALSE, 
+                        skip = 3, 
+                        nrows = 1)
 
-names(datos_2023)<-nombres_columnas
+#Leer los DATOS, saltando las 4 líneas de encabezados + unidades
+#Saltamos las 3 líneas de metadatos + la línea de nombres (4) + la línea de unidades (5).
+datos_2023 <- read.csv("data/2023/MDEST462500472023_AVFRANCIA.csv", 
+                       sep = "\t", dec = ",", 
+                       header = FALSE,
+                       skip = 5) 
 
-#que estaciones hay en el dataset1
-unique(datos_calidad$Estacion)
+names(datos_2023) <- nombres
+print("NOMBRES 2023")
+print(names(datos_2023))
+print("NOMBRES DATOS CALIDAD")
+print(names(datos_calidad))
+
+
+library(dplyr)
+
+# A. Estandarizar NOMBRES 2023 (Datos Meteorológicos)
+# Asumimos que estos nombres ya están asignados a datos_2023
+# Solo vamos a renombrar las variables de meteo a nombres más claros:
+datos_2023 <- datos_2023 %>%
+  rename(
+    Fecha=FECHA,
+    Velocidad.del.viento = Veloc.,  # Veloc. se convierte a Velocidad.del.viento
+    Direccion.del.viento = Direc.,  # Direc. se convierte a Direccion.del.viento
+  )
+
+
+datos_combinados <- bind_rows(datos_calidad, datos_2023)
+
+# 2. Crear la nueva columna 'Id' secuencial
+datos_combinados <- datos_combinados %>%
+  # Creamos una nueva columna 'Id' que asigna un número de fila secuencial
+  # a todo el conjunto de datos combinado.
+  mutate(Id = row_number(),Estacion = "Avda. Francia") %>%
+  # Opcional: Reordenar las columnas para que 'Id' sea la primera
+  select(Id, everything())
+
+# Verificación
+# 1. Mira las últimas filas (deberían ser las de 2023)
+head(datos_combinados) 
+tail(datos_combinados)
+
 ```
 
