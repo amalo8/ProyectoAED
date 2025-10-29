@@ -9,6 +9,7 @@ date: "2025-10-27"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 rm(list=ls())
+library(dplyr)
 ```
 
 ```{r}
@@ -19,7 +20,7 @@ datos_calidad <- datos_calidad %>%
     As=As..ng.m..,
     Ni=Ni..ng.m..,
     Cd=Cd..ng.m..,
-    Bap=B.a.p..ng.m..,
+    BaP=B.a.p..ng.m..,
     Pb=Pb..ng.m..
   )
 
