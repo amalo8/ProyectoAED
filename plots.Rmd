@@ -12,14 +12,12 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(dplyr)
 library(tidyr)
+library(lubridate)
 data<-read.csv("data/datos_meteorologicos_combinados.csv",sep=",",header=TRUE)
 ```
 
 ```{r}
-# Convertir la columna 'Fecha' a tipo Date
 data <- data %>%
-  #pasar de formato 2019-07-30 a formato date
-  mutate(Fecha=as.Date(Fecha, format = "%Y-%m-%d"))  %>%
   # Crear una columna 'Anio' (Año) que usaremos para agrupar y plotear
   mutate(Anio = year(Fecha))
 
@@ -37,8 +35,6 @@ library(ggplot2)
 datos_anuales <- data %>%
   # Seleccionamos las variables clave y el nuevo año
   select(Anio, PM10, NO2, O3) %>%
-  # Excluimos los años con demasiados NA (como 2025 incompleto) si es necesario
-  filter(Anio <= year(Sys.Date()) - 1) %>% # Filtra hasta el año anterior al actual (2024 en tu caso)
   
   # Agrupamos por año y calculamos el promedio (excluyendo NA)
   group_by(Anio) %>%
@@ -61,7 +57,7 @@ ggplot(datos_anuales, aes(x = Anio, y = Concentracion_media, color = Contaminant
   geom_point() +
   scale_x_continuous(breaks = unique(datos_anuales$Anio)[seq(1, length(unique(datos_anuales$Anio)), 2)]) + # Muestra años alternos
   labs(
-    title = "Evolución de la Concentración Media Anual de Contaminantes (2004 - 2024)",
+    title = "Evolución de la Concentración Media Anual de Contaminantes (2004 - 2025)",
     x = "Año",
     y = "Concentración Media Anual",
     color = "Contaminante"
@@ -83,9 +79,6 @@ datos_anuales_todos <- data %>%
   
   # Seleccionar solo las columnas de interés y el año
   select(Anio, all_of(contaminantes)) %>% 
-  
-  # Filtrar años incompletos (ej. 2025 o el año actual)
-  filter(Anio <= year(Sys.Date()) - 1) %>% 
   
   # Agrupar por año y calcular la media de cada contaminante, ignorando NAs
   group_by(Anio) %>%
@@ -135,9 +128,6 @@ datos_anuales_adicionales <- data %>%
   # Seleccionar solo las columnas de interés y el año
   select(Anio, all_of(variables_adicionales)) %>% 
   
-  # Filtrar años incompletos (ej. 2025 o el año actual)
-  filter(Anio <= year(Sys.Date()) - 1) %>% 
-  
   # Agrupar por año y calcular la media de cada variable, ignorando NAs
   group_by(Anio) %>%
   summarise(across(all_of(variables_adicionales), ~mean(.x, na.rm = TRUE))) %>%
@@ -161,7 +151,7 @@ ggplot(datos_anuales_adicionales, aes(x = Anio, y = Valor_medio_anual, color = V
   facet_wrap(~ Variable, scales = "free_y", ncol = 3) + 
   
   labs(
-    title = "Evolución de Variables Ambientales y Meteorológicas (2004 - 2024)",
+    title = "Evolución de Variables Ambientales y Meteorológicas (2004 - 2025)",
     subtitle = "El eje Y (Concentración/Valor) varía para cada variable",
     x = "Año",
     y = "Valor Medio Anual"
@@ -183,9 +173,6 @@ datos_anuales_metales <- data %>%
   
   # Seleccionar solo las columnas de interés y el año
   select(Anio, all_of(metales_pesados)) %>% 
-  
-  # Filtrar años incompletos (ej. 2025 o el año actual)
-  filter(Anio <= year(Sys.Date()) - 1) %>% 
   
   # Agrupar por año y calcular la MEDIANA de cada metal, ignorando NAs
   group_by(Anio) %>%

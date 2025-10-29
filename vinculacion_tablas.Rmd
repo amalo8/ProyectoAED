@@ -10,6 +10,7 @@ date: "2025-10-27"
 knitr::opts_chunk$set(echo = TRUE)
 rm(list=ls())
 library(dplyr)
+library(lubridate)
 ```
 
 ```{r}
@@ -46,8 +47,6 @@ names(datos_2023) <- nombres
 # print(names(datos_calidad))
 
 
-library(dplyr)
-
 # A. Estandarizar NOMBRES 2023 (Datos Meteorológicos)
 # Asumimos que estos nombres ya están asignados a datos_2023
 # Solo vamos a renombrar las variables de meteo a nombres más claros:
@@ -56,7 +55,13 @@ datos_2023 <- datos_2023 %>%
     Fecha=FECHA,
     Velocidad.del.viento=Veloc.,
     Direccion.del.viento=Direc.
-      )
+      )%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
+
+# 1. Convertir la columna 'Fecha' de texto (AAAA-MM-DD) a formato Date
+datos_calidad <- datos_calidad %>%
+  mutate(Fecha = as.Date(Fecha, format = "%Y-%m-%d"))
 
 # Agregar columna Estacion como "Av de Francia"
 datos_2023 <- datos_2023 %>%
@@ -108,7 +113,14 @@ datos_2024 <- datos_2024 %>%
     Fecha=FECHA,
     Velocidad.del.viento=Veloc.,
     Direccion.del.viento=Direc.
-      )
+      )%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
+
+# 1. Convertir la columna 'Fecha' de texto (AAAA-MM-DD) a formato Date
+datos_calidad <- datos_calidad %>%
+  mutate(Fecha = as.Date(Fecha, format = "%Y-%m-%d"))
+
 
 # Agregar columna Estacion como "Av de Francia"
 datos_2024 <- datos_2024 %>%
@@ -163,7 +175,14 @@ datos_2025 <- datos_2025 %>%
     Fecha=FECHA,
     Velocidad.del.viento=Veloc.,
     Direccion.del.viento=Direc.
-      )
+      )%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
+
+# 1. Convertir la columna 'Fecha' de texto (AAAA-MM-DD) a formato Date
+datos_calidad <- datos_calidad %>%
+  mutate(Fecha = as.Date(Fecha, format = "%Y-%m-%d"))
+
 
 # Agregar columna Estacion como "Av de Francia"
 datos_2025 <- datos_2025 %>%
@@ -224,7 +243,9 @@ names(datos_2023) <- nombres
 # Solo vamos a renombrar las variables de meteo a nombres más claros:
 datos_2023 <- datos_2023 %>%
   rename(
-    Fecha=FECHA)
+    Fecha=FECHA)%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Pista Silla"
 datos_2023 <- datos_2023 %>%
@@ -268,7 +289,9 @@ names(datos_2024) <- nombres
 # Solo vamos a renombrar las variables de meteo a nombres más claros:
 datos_2024 <- datos_2024 %>%
   rename(
-    Fecha=FECHA)
+    Fecha=FECHA)%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Pista Silla"
 datos_2024 <- datos_2024 %>%
@@ -311,7 +334,9 @@ names(datos_2025) <- nombres
 # Solo vamos a renombrar las variables de meteo a nombres más claros:
 datos_2025 <- datos_2025 %>%
   rename(
-    Fecha=FECHA)
+    Fecha=FECHA)%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Pista Silla"
 datos_2025 <- datos_2025 %>%
@@ -372,7 +397,9 @@ names(datos_2023) <- nombres
 # Solo vamos a renombrar las variables de meteo a nombres más claros:
 datos_2023 <- datos_2023 %>%
   rename(
-    Fecha=FECHA)
+    Fecha=FECHA)%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Viveros"
 datos_2023 <- datos_2023 %>%
@@ -416,7 +443,9 @@ names(datos_2024) <- nombres
 # Solo vamos a renombrar las variables de meteo a nombres más claros:
 datos_2024 <- datos_2024 %>%
   rename(
-    Fecha=FECHA)
+    Fecha=FECHA)%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Viveros"
 datos_2024 <- datos_2024 %>%
@@ -460,7 +489,9 @@ names(datos_2025) <- nombres
 # Solo vamos a renombrar las variables de meteo a nombres más claros:
 datos_2025 <- datos_2025 %>%
   rename(
-    Fecha=FECHA)
+    Fecha=FECHA)%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Viveros"
 datos_2025 <- datos_2025 %>%
@@ -519,7 +550,9 @@ names(datos_2023) <- nombres
 # Solo vamos a renombrar las variables de meteo a nombres más claros:
 datos_2023 <- datos_2023 %>%
   rename(
-    Fecha=FECHA)
+    Fecha=FECHA)%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Politecnico"
 datos_2023 <- datos_2023 %>%
@@ -563,7 +596,9 @@ names(datos_2024) <- nombres
 # Solo vamos a renombrar las variables de meteo a nombres más claros:
 datos_2024 <- datos_2024 %>%
   rename(
-    Fecha=FECHA)
+    Fecha=FECHA)%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Politecnico"
 datos_2024 <- datos_2024 %>%
@@ -606,7 +641,9 @@ names(datos_2025) <- nombres
 # Solo vamos a renombrar las variables de meteo a nombres más claros:
 datos_2025 <- datos_2025 %>%
   rename(
-    Fecha=FECHA)
+    Fecha=FECHA)%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Politecnico"
 datos_2025 <- datos_2025 %>%
@@ -663,7 +700,9 @@ names(datos_2023) <- nombres
 # Solo vamos a renombrar las variables de meteo a nombres más claros:
 datos_2023 <- datos_2023 %>%
   rename(
-    Fecha=FECHA)
+    Fecha=FECHA)%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Moli del Sol"
 datos_2023 <- datos_2023 %>%
@@ -707,7 +746,9 @@ names(datos_2024) <- nombres
 # Solo vamos a renombrar las variables de meteo a nombres más claros:
 datos_2024 <- datos_2024 %>%
   rename(
-    Fecha=FECHA)
+    Fecha=FECHA)%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Moli del Sol"
 datos_2024 <- datos_2024 %>%
@@ -751,7 +792,9 @@ names(datos_2025) <- nombres
 # Solo vamos a renombrar las variables de meteo a nombres más claros:
 datos_2025 <- datos_2025 %>%
   rename(
-    Fecha=FECHA)
+    Fecha=FECHA)%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Moli del Sol"
 datos_2025 <- datos_2025 %>%
@@ -816,7 +859,9 @@ datos_2023 <- datos_2023 %>%
     Presion=Pres.,
     Radiacion.solar=R.Sol.,
     Precipitacion=Precip.,
-    Velocidad.maxima.del.viento="Veloc.m\xe1x.")
+    Velocidad.maxima.del.viento="Veloc.m\xe1x.")%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Conselleria Meteo"
 datos_2023 <- datos_2023 %>%
@@ -867,7 +912,9 @@ datos_2024 <- datos_2024 %>%
     Presion=Pres.,
     Radiacion.solar=R.Sol.,
     Precipitacion=Precip.,
-    Velocidad.maxima.del.viento="Veloc.m\xe1x.")
+    Velocidad.maxima.del.viento="Veloc.m\xe1x.")%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Conselleria Meteo"
 datos_2024 <- datos_2024 %>%
@@ -919,7 +966,9 @@ datos_2025 <- datos_2025 %>%
     Presion=Pres.,
     Radiacion.solar=R.Sol.,
     Precipitacion=Precip.,
-    Velocidad.maxima.del.viento="Veloc.m\xe1x.")
+    Velocidad.maxima.del.viento="Veloc.m\xe1x.")%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Conselleria Meteo"
 datos_2025 <- datos_2025 %>%
@@ -976,7 +1025,9 @@ names(datos_2023) <- nombres
 # Solo vamos a renombrar las variables de meteo a nombres más claros:
 datos_2023 <- datos_2023 %>%
   rename(
-    Fecha=FECHA)
+    Fecha=FECHA)%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Bulevard Sud"
 datos_2023 <- datos_2023 %>%
@@ -1023,7 +1074,9 @@ names(datos_2024) <- nombres
 # Solo vamos a renombrar las variables de meteo a nombres más claros:
 datos_2024 <- datos_2024 %>%
   rename(
-    Fecha=FECHA)
+    Fecha=FECHA)%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Bulevard Sud"
 datos_2024 <- datos_2024 %>%
@@ -1070,7 +1123,9 @@ names(datos_2025) <- nombres
 # Solo vamos a renombrar las variables de meteo a nombres más claros:
 datos_2025 <- datos_2025 %>%
   rename(
-    Fecha=FECHA)
+    Fecha=FECHA)%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Bulevard Sud"
 datos_2025 <- datos_2025 %>%
@@ -1130,7 +1185,9 @@ names(datos_2023) <- nombres
 # Solo vamos a renombrar las variables de meteo a nombres más claros:
 datos_2023 <- datos_2023 %>%
   rename(
-    Fecha=FECHA)
+    Fecha=FECHA)%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Valencia Centro"
 datos_2023 <- datos_2023 %>%
@@ -1173,7 +1230,9 @@ names(datos_2024) <- nombres
 # Solo vamos a renombrar las variables de meteo a nombres más claros:
 datos_2024 <- datos_2024 %>%
   rename(
-    Fecha=FECHA)
+    Fecha=FECHA)%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Valencia Centro"
 datos_2024 <- datos_2024 %>%
@@ -1215,7 +1274,9 @@ names(datos_2025) <- nombres
 # Solo vamos a renombrar las variables de meteo a nombres más claros:
 datos_2025 <- datos_2025 %>%
   rename(
-    Fecha=FECHA)
+    Fecha=FECHA)%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Valencia Centro"
 datos_2025 <- datos_2025 %>%
@@ -1280,7 +1341,9 @@ datos_2023 <- datos_2023 %>%
     Presion=Pres.,
     Radiacion.solar=R.Sol.,
     Precipitacion=Precip.,
-    Velocidad.maxima.del.viento="Veloc.m\xe1x.")
+    Velocidad.maxima.del.viento="Veloc.m\xe1x.")%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 
 # Agregar columna Estacion como "Puerto Moll Trans. Ponent"
@@ -1332,7 +1395,9 @@ datos_2024 <- datos_2024 %>%
     Presion=Pres.,
     Radiacion.solar=R.Sol.,
     Precipitacion=Precip.,
-    Velocidad.maxima.del.viento="Veloc.m\xe1x.")
+    Velocidad.maxima.del.viento="Veloc.m\xe1x.")%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Puerto Moll Trans. Ponent"
 datos_2024 <- datos_2024 %>%
@@ -1383,7 +1448,9 @@ datos_2025 <- datos_2025 %>%
     Presion=Pres.,
     Radiacion.solar=R.Sol.,
     Precipitacion=Precip.,
-    Velocidad.maxima.del.viento="Veloc.m\xe1x.")
+    Velocidad.maxima.del.viento="Veloc.m\xe1x.")%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Puerto Moll Trans. Ponent"
 datos_2025 <- datos_2025 %>%
@@ -1447,7 +1514,9 @@ datos_2023 <- datos_2023 %>%
     Presion=Pres.,
     Radiacion.solar=R.Sol.,
     Precipitacion=Precip.,
-    Velocidad.maxima.del.viento="Veloc.m\xe1x.")
+    Velocidad.maxima.del.viento="Veloc.m\xe1x.")%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 
 # Agregar columna Estacion como "Puerto llit antic Turia"
@@ -1499,7 +1568,9 @@ datos_2024 <- datos_2024 %>%
     Presion=Pres.,
     Radiacion.solar=R.Sol.,
     Precipitacion=Precip.,
-    Velocidad.maxima.del.viento="Veloc.m\xe1x.")
+    Velocidad.maxima.del.viento="Veloc.m\xe1x.")%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Puerto llit antic Turia"
 datos_2024 <- datos_2024 %>%
@@ -1550,7 +1621,9 @@ datos_2025 <- datos_2025 %>%
     Presion=Pres.,
     Radiacion.solar=R.Sol.,
     Precipitacion=Precip.,
-    Velocidad.maxima.del.viento="Veloc.m\xe1x.")
+    Velocidad.maxima.del.viento="Veloc.m\xe1x.")%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Puerto llit antic Turia"
 datos_2025 <- datos_2025 %>%
@@ -1613,7 +1686,9 @@ datos_2023 <- datos_2023 %>%
     Presion=Pres.,
     Radiacion.solar=R.Sol.,
     Precipitacion=Precip.,
-    Velocidad.maxima.del.viento="Veloc.m\xe1x.")
+    Velocidad.maxima.del.viento="Veloc.m\xe1x.")%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 
 # Agregar columna Estacion como "Nazaret Meteo"
@@ -1665,7 +1740,9 @@ datos_2024 <- datos_2024 %>%
     Presion=Pres.,
     Radiacion.solar=R.Sol.,
     Precipitacion=Precip.,
-    Velocidad.maxima.del.viento="Veloc.m\xe1x.")
+    Velocidad.maxima.del.viento="Veloc.m\xe1x.")%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Nazaret Meteo"
 datos_2024 <- datos_2024 %>%
@@ -1716,7 +1793,9 @@ datos_2025 <- datos_2025 %>%
     Presion=Pres.,
     Radiacion.solar=R.Sol.,
     Precipitacion=Precip.,
-    Velocidad.maxima.del.viento="Veloc.m\xe1x.")
+    Velocidad.maxima.del.viento="Veloc.m\xe1x.")%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Nazaret Meteo"
 datos_2025 <- datos_2025 %>%
@@ -1771,7 +1850,9 @@ names(datos_2023) <- nombres
 # Solo vamos a renombrar las variables de meteo a nombres más claros:
 datos_2023 <- datos_2023 %>%
   rename(
-    Fecha=FECHA)
+    Fecha=FECHA)%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 
 # Agregar columna Estacion como "Valencia Olivereta"
@@ -1815,7 +1896,9 @@ names(datos_2024) <- nombres
 # Solo vamos a renombrar las variables de meteo a nombres más claros:
 datos_2024 <- datos_2024 %>%
   rename(
-    Fecha=FECHA)
+    Fecha=FECHA)%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Valencia Olivereta"
 datos_2024 <- datos_2024 %>%
@@ -1858,7 +1941,9 @@ names(datos_2025) <- nombres
 # Solo vamos a renombrar las variables de meteo a nombres más claros:
 datos_2025 <- datos_2025 %>%
   rename(
-    Fecha=FECHA)
+    Fecha=FECHA)%>%
+  # 2. Convertir la columna 'Fecha' de texto (DD/MM/AAAA) a formato Date
+  mutate(Fecha = dmy(Fecha))
 
 # Agregar columna Estacion como "Valencia Olivereta"
 datos_2025 <- datos_2025 %>%
