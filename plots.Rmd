@@ -1,0 +1,225 @@
+---
+title: "plots"
+output: html_document
+date: "2025-10-29"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(dplyr)
+library(tidyr)
+data<-read.csv("data/datos_meteorologicos_combinados.csv",sep=",",header=TRUE)
+```
+
+```{r}
+# Convertir la columna 'Fecha' a tipo Date
+data <- data %>%
+  #pasar de formato 2019-07-30 a formato date
+  mutate(Fecha=as.Date(Fecha, format = "%Y-%m-%d"))  %>%
+  # Crear una columna 'Anio' (Año) que usaremos para agrupar y plotear
+  mutate(Anio = year(Fecha))
+
+# Verificación: La columna 'Fecha' ahora debe ser de tipo <date>
+str(data$Fecha)
+```
+
+
+
+
+```{r}
+library(ggplot2)
+
+# 1. Calcular el Promedio Anual (Agregación)
+datos_anuales <- data %>%
+  # Seleccionamos las variables clave y el nuevo año
+  select(Anio, PM10, NO2, O3) %>%
+  # Excluimos los años con demasiados NA (como 2025 incompleto) si es necesario
+  filter(Anio <= year(Sys.Date()) - 1) %>% # Filtra hasta el año anterior al actual (2024 en tu caso)
+  
+  # Agrupamos por año y calculamos el promedio (excluyendo NA)
+  group_by(Anio) %>%
+  summarise(
+    PM10_media = mean(PM10, na.rm = TRUE),
+    NO2_media = mean(NO2, na.rm = TRUE),
+    O3_media = mean(O3, na.rm = TRUE)
+  ) %>%
+  ungroup() %>%
+  # Convertir de formato ancho a formato largo (útil para ggplot)
+  tidyr::pivot_longer(
+    cols = ends_with("_media"), 
+    names_to = "Contaminante", 
+    values_to = "Concentracion_media"
+  )
+
+# 2. Generar el Gráfico de Tendencia
+ggplot(datos_anuales, aes(x = Anio, y = Concentracion_media, color = Contaminante)) +
+  geom_line(linewidth = 1) +
+  geom_point() +
+  scale_x_continuous(breaks = unique(datos_anuales$Anio)[seq(1, length(unique(datos_anuales$Anio)), 2)]) + # Muestra años alternos
+  labs(
+    title = "Evolución de la Concentración Media Anual de Contaminantes (2004 - 2024)",
+    x = "Año",
+    y = "Concentración Media Anual",
+    color = "Contaminante"
+  ) +
+  theme_minimal() +
+  # Opcional: Aplicar facet_wrap si las escalas son muy diferentes
+  facet_wrap(~ Contaminante, scales = "free_y", ncol = 1)
+```
+
+```{r}
+# --- PASO 2: Definir y Agrupar Contaminantes ---
+
+# Definimos las columnas de interés (excluyendo metales pesados y metadatos con muchos NA)
+contaminantes <- c("PM1", "PM2.5", "PM10", "NO", "NO2", "NOx", "O3", 
+                   "SO2", "CO", "NH3", "C7H8", "C6H6", "C8H10")
+
+# 1. Calcular el Promedio Anual para TODOS los contaminantes seleccionados
+datos_anuales_todos <- data %>%
+  
+  # Seleccionar solo las columnas de interés y el año
+  select(Anio, all_of(contaminantes)) %>% 
+  
+  # Filtrar años incompletos (ej. 2025 o el año actual)
+  filter(Anio <= year(Sys.Date()) - 1) %>% 
+  
+  # Agrupar por año y calcular la media de cada contaminante, ignorando NAs
+  group_by(Anio) %>%
+  summarise(across(all_of(contaminantes), ~mean(.x, na.rm = TRUE))) %>%
+  ungroup() %>%
+  
+  # Convertir de formato ANCHO a formato LARGO (necesario para ggplot facet_wrap)
+  pivot_longer(
+    cols = all_of(contaminantes), 
+    names_to = "Contaminante", 
+    values_to = "Concentracion_media"
+  )
+
+
+# --- PASO 3: Generar el Gráfico de Tendencia ---
+
+ggplot(datos_anuales_todos, aes(x = Anio, y = Concentracion_media, color = Contaminante)) +
+  geom_line(linewidth = 1, show.legend = FALSE) + # Ocultamos la leyenda ya que usamos facet_wrap
+  geom_point(show.legend = FALSE) +
+  scale_x_continuous(breaks = unique(datos_anuales_todos$Anio)[seq(1, length(unique(datos_anuales_todos$Anio)), 3)]) + # Muestra años alternos
+  
+  # Usamos facet_wrap con scales = "free_y" para que cada contaminante tenga su propia escala de Y.
+  facet_wrap(~ Contaminante, scales = "free_y", ncol = 3) + 
+  
+  labs(
+    title = "Evolución de la Concentración Media Anual de Todos los Contaminantes",
+    subtitle = paste0("Datos desde ", min(datos_anuales_todos$Anio), " hasta ", max(datos_anuales_todos$Anio)),
+    x = "Año",
+    y = "Concentración Media Anual"
+  ) +
+  theme_minimal() +
+  theme(
+    strip.text = element_text(face = "bold"), # Negrita en los títulos de las facetas
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+```{r}
+
+
+# Definimos las columnas adicionales de interés
+variables_adicionales <- c("Velocidad.del.viento", "Velocidad.maxima.del.viento","Temperatura", "Humidad.relativa", "Presion", "Radiacion.solar", "Precipitacion", "Ruido")
+
+# --- PASO 1: Calcular el Promedio Anual para las Variables Adicionales ---
+
+datos_anuales_adicionales <- data %>%
+  
+  # Seleccionar solo las columnas de interés y el año
+  select(Anio, all_of(variables_adicionales)) %>% 
+  
+  # Filtrar años incompletos (ej. 2025 o el año actual)
+  filter(Anio <= year(Sys.Date()) - 1) %>% 
+  
+  # Agrupar por año y calcular la media de cada variable, ignorando NAs
+  group_by(Anio) %>%
+  summarise(across(all_of(variables_adicionales), ~mean(.x, na.rm = TRUE))) %>%
+  ungroup() %>%
+  
+  # Convertir de formato ANCHO a formato LARGO para usar facet_wrap
+  pivot_longer(
+    cols = all_of(variables_adicionales), 
+    names_to = "Variable", 
+    values_to = "Valor_medio_anual"
+  )
+
+# --- PASO 2: Generar el Gráfico de Tendencia con Facetas Libres ---
+
+ggplot(datos_anuales_adicionales, aes(x = Anio, y = Valor_medio_anual, color = Variable)) +
+  geom_line(linewidth = 1, show.legend = FALSE) + 
+  geom_point(show.legend = FALSE) +
+  scale_x_continuous(breaks = unique(datos_anuales_adicionales$Anio)[seq(1, length(unique(datos_anuales_adicionales$Anio)), 3)]) +
+  
+  # Usamos facet_wrap con scales = "free_y" ya que las unidades son muy diferentes
+  facet_wrap(~ Variable, scales = "free_y", ncol = 3) + 
+  
+  labs(
+    title = "Evolución de Variables Ambientales y Meteorológicas (2004 - 2024)",
+    subtitle = "El eje Y (Concentración/Valor) varía para cada variable",
+    x = "Año",
+    y = "Valor Medio Anual"
+  ) +
+  theme_minimal() +
+  theme(
+    strip.text = element_text(face = "bold", size = 9),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+```{r}
+
+# Definimos las columnas de metales pesados
+metales_pesados <- c("As", "Ni", "Cd", "Pb","BaP")
+
+# --- PASO 1: Calcular la MEDIANA Anual para los Metales ---
+
+datos_anuales_metales <- data %>%
+  
+  # Seleccionar solo las columnas de interés y el año
+  select(Anio, all_of(metales_pesados)) %>% 
+  
+  # Filtrar años incompletos (ej. 2025 o el año actual)
+  filter(Anio <= year(Sys.Date()) - 1) %>% 
+  
+  # Agrupar por año y calcular la MEDIANA de cada metal, ignorando NAs
+  group_by(Anio) %>%
+  summarise(across(all_of(metales_pesados), ~median(.x, na.rm = TRUE))) %>%
+  ungroup() %>%
+  
+  # Convertir de formato ANCHO a formato LARGO para facet_wrap
+  pivot_longer(
+    cols = all_of(metales_pesados), 
+    names_to = "Metal", 
+    values_to = "Concentracion_mediana"
+  )
+
+# --- PASO 2: Generar el Gráfico de Tendencia con Facetas Libres ---
+
+ggplot(datos_anuales_metales, aes(x = Anio, y = Concentracion_mediana, color = Metal)) +
+  geom_line(linewidth = 1, show.legend = FALSE) + 
+  geom_point(show.legend = FALSE) +
+  scale_x_continuous(breaks = unique(datos_anuales_metales$Anio)[seq(1, length(unique(datos_anuales_metales$Anio)), 3)]) +
+  
+  # Usamos facet_wrap con scales = "free_y" para que cada metal tenga su propia escala.
+  # El límite en y = 0.5 asegura que los valores cercanos a cero se visualicen.
+  facet_wrap(~ Metal, scales = "free_y", ncol = 2) + 
+  
+  labs(
+    title = "Evolución de la Concentración Mediana Anual de Metales Pesados",
+    subtitle = "Se usa la mediana para mitigar el impacto de valores extremos y muchos NAs.",
+    x = "Año",
+    y = "Concentración Mediana Anual"
+  ) +
+  theme_minimal() +
+  theme(
+    strip.text = element_text(face = "bold", size = 10),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+
