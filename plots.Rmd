@@ -222,4 +222,35 @@ ggplot(datos_anuales_metales, aes(x = Anio, y = Concentracion_mediana, color = M
     axis.text.x = element_text(angle = 45, hjust = 1)
   )
 ```
+```{r}
+datos_frecuencia <- data %>%
+  # Quitamos registros completamente vacíos si los hubiera
+  filter(!is.na(Fecha)) %>% 
+  
+  # Agrupamos por Año y Estación y contamos las filas (registros)
+  group_by(Anio, Estacion) %>%
+  summarise(
+    Numero_Registros = n(),
+    .groups = 'drop'
+  ) 
+
+
+# Convertimos Anio a factor para el gráfico de barras
+datos_frecuencia$Anio_Factor <- as.factor(datos_frecuencia$Anio)
+
+ggplot(datos_frecuencia, aes(x = Estacion, y = Numero_Registros, fill = Anio_Factor)) +
+  geom_bar(stat = "identity", position = "stack") +
+  
+  labs(
+    title = "Integridad de Datos: Número de Registros por Estación y Año",
+    subtitle = "La altura de la barra muestra la contribución total histórica de la estación.",
+    x = "Estación de Monitoreo",
+    y = "Número Total de Registros",
+    fill = "Año"
+  ) +
+  scale_fill_viridis_d() + # Utiliza una paleta de colores diversa
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8))
+
+```
 
