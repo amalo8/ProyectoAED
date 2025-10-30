@@ -14,7 +14,7 @@ rm(list=ls())
 library(dplyr)
 library(tidyr)
 library(lubridate)
-data<-read.csv("data/datos_meteorologicos_combinados.csv",sep=",",header=TRUE)
+data<-read.csv("data/datos_meteorologicos_limpios.csv",sep=",",header=TRUE)
 ```
 
 ```{r}
