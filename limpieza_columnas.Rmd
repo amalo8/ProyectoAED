@@ -1,0 +1,45 @@
+---
+title: "limpieza_columnas"
+output: html_document
+date: "2025-10-30"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list=ls())
+library(dplyr)
+library(lubridate)
+```
+
+```{r}
+datos<-read.csv("data/datos_meteorologicos_combinados.csv",sep=",",header=TRUE)
+
+#eliminar columnas de Id, dia de semana y del mes
+datos%>%
+  select(-c(Id,Dia.de.la.semana,Dia.del.mes)) -> datos_limpios
+
+#eliminar metales pesados debido a la gran cantidad de NA para la mayoría de años y a su no consideración para calcular el índice de calidad del aire
+datos_limpios%>%
+  select(-c(As,Pb,Cd,Ni,BaP)) -> datos_limpios2
+
+#eliminar fecha creacion y baja ya que no aportan información relevante para el análisis
+datos_limpios2%>%
+  select(-c(Fecha.creacion,Fecha.baja)) -> datos_limpios3
+
+#eliminar aquellas filas si las hay, cuya fecha o estacion tengan valor NA ya que no sabremos qué día o estación corresponde
+#contabilizar el numero de filas eliminadas 
+n_filas_antes <- nrow(datos_limpios3)
+datos_limpios3%>%
+  filter(!is.na(Fecha) & !is.na(Estacion)) -> datos_limpios4
+n_filas_despues <- nrow(datos_limpios4)
+n_filas_eliminadas <- n_filas_antes - n_filas_despues
+cat("Número de filas eliminadas debido a NA en Fecha o Estacion:", n_filas_eliminadas, "\n")
+
+#ordenar por fecha
+datos_limpios4%>%
+  arrange(Fecha) -> datos_limpios_final
+#guardar el dataset limpio con row names FALSE para evitar que se guarde una columna extra con los índices
+write.csv(datos_limpios_final,"data/datos_meteorologicos_limpios.csv",row.names=FALSE)
+```
+
+
