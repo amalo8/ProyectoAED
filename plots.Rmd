@@ -163,53 +163,7 @@ ggplot(datos_anuales_adicionales, aes(x = Anio, y = Valor_medio_anual, color = V
     axis.text.x = element_text(angle = 45, hjust = 1)
   )
 ```
-```{r}
 
-# Definimos las columnas de metales pesados
-metales_pesados <- c("As", "Ni", "Cd", "Pb","BaP")
-
-# --- PASO 1: Calcular la MEDIANA Anual para los Metales ---
-
-datos_anuales_metales <- data %>%
-  
-  # Seleccionar solo las columnas de interés y el año
-  select(Anio, all_of(metales_pesados)) %>% 
-  
-  # Agrupar por año y calcular la MEDIANA de cada metal, ignorando NAs
-  group_by(Anio) %>%
-  summarise(across(all_of(metales_pesados), ~median(.x, na.rm = TRUE))) %>%
-  ungroup() %>%
-  
-  # Convertir de formato ANCHO a formato LARGO para facet_wrap
-  pivot_longer(
-    cols = all_of(metales_pesados), 
-    names_to = "Metal", 
-    values_to = "Concentracion_mediana"
-  )
-
-# --- PASO 2: Generar el Gráfico de Tendencia con Facetas Libres ---
-
-ggplot(datos_anuales_metales, aes(x = Anio, y = Concentracion_mediana, color = Metal)) +
-  geom_line(linewidth = 1, show.legend = FALSE) + 
-  geom_point(show.legend = FALSE) +
-  scale_x_continuous(breaks = unique(datos_anuales_metales$Anio)[seq(1, length(unique(datos_anuales_metales$Anio)), 3)]) +
-  
-  # Usamos facet_wrap con scales = "free_y" para que cada metal tenga su propia escala.
-  # El límite en y = 0.5 asegura que los valores cercanos a cero se visualicen.
-  facet_wrap(~ Metal, scales = "free_y", ncol = 2) + 
-  
-  labs(
-    title = "Evolución de la Concentración Mediana Anual de Metales Pesados",
-    subtitle = "Se usa la mediana para mitigar el impacto de valores extremos y muchos NAs.",
-    x = "Año",
-    y = "Concentración Mediana Anual"
-  ) +
-  theme_minimal() +
-  theme(
-    strip.text = element_text(face = "bold", size = 10),
-    axis.text.x = element_text(angle = 45, hjust = 1)
-  )
-```
 ```{r}
 datos_frecuencia <- data %>%
   # Quitamos registros completamente vacíos si los hubiera
