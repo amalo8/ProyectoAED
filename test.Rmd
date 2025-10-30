@@ -1,0 +1,111 @@
+---
+title: "proyecto"
+author: "An"
+date: "2025-10-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+library(dplyr)
+library(lubridate)
+library(tidyr)
+library(skimr)
+
+####datos
+df<-read.csv("data/datos_meteorologicos_combinados.csv",sep=",",header=TRUE,encoding = "UTF-8",
+               stringsAsFactors = FALSE)
+head(df)
+str(df)
+
+####forma de fecha
+df <- df %>%
+  mutate(Fecha = parse_date_time(Fecha, orders = c("dmy", "ymd", "Ymd", "dmY", "Y/m/d", "d/m/Y"))) %>%
+  mutate(Fecha = as.Date(Fecha))
+####semana 
+df$Fecha <- as.Date(df$Fecha)
+na_idx <- is.na(df$Dia.de.la.semana)
+df$Dia.de.la.semana[na_idx] <- weekdays(df$Fecha[na_idx])
+df$Dia.de.la.semana <- recode(df$Dia.de.la.semana, "Monday"="lunes", "Tuesday"="martes", "Wednesday"="miércoles",  "Thursday"="jueves", "Friday"="viernes", "Saturday"="sábado", "Sunday"="domingo")
+
+####dia del mes
+df <- df %>%
+  mutate(Dia.del.mes = ifelse(is.na(Dia.del.mes), day(Fecha),Dia.del.mes))
+
+####missing value
+skim(df)
+
+```
+
+```{r}
+#####sub group
+df_sub <- df %>% 
+  select(-c(15:19,27:34)) %>%
+  select(-Id, -PM1, -NOx, -NO)
+str(df_sub)
+skim(df_sub)
+
+####arrange 
+df_sub <- df_sub %>%
+  arrange(Estacion, Fecha)
+df_sub <- df_sub %>% 
+  relocate(Estacion, Fecha)
+str(df_sub)
+
+#####fecha
+df_sub %>%
+  group_by(Estacion) %>%
+  summarise(Fecha_inicio = min(Fecha, na.rm = TRUE), Fecha_fin = max(Fecha, na.rm = TRUE), n_dias = n()) %>%
+  arrange(Estacion)
+
+```
+
+```{r}
+#### divide por estaciones
+groupo <- df_sub %>%
+  group_by(Estacion)
+df_estacion <- group_split(groupo)
+names(df_estacion) <- group_keys(groupo)$Estacion  
+
+skim(df_estacion$`Avda. Francia`)
+```
+
+```{r}
+
+########## datos original solo para comprobar los datos 
+
+df1<-read.csv("data/rvvcca.csv",sep=";",header=TRUE,encoding = "UTF-8",
+               stringsAsFactors = FALSE)
+df1 %>%
+  group_by(Estacion) %>%
+  summarise(Fecha_inicio = min(Fecha, na.rm = TRUE), Fecha_fin = max(Fecha, na.rm = TRUE), n_dias = n()) %>%
+  arrange(Estacion)
+
+unique(df1$Estacion)
+```
+
+
+
