@@ -9,6 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 rm(list=ls())
 library(dplyr)
 library(lubridate)
+rm(list=ls())
 ```
 
 ```{r}
@@ -37,9 +38,27 @@ cat("Número de filas eliminadas debido a NA en Fecha o Estacion:", n_filas_elim
 
 #ordenar por fecha
 datos_limpios4%>%
-  arrange(Fecha) -> datos_limpios_final
+  arrange(Fecha) -> datos_limpios5
+
+```  
+
+```{r}
+datos_limpios5<-read.csv("data/datos_meteorologicos_limpios.csv",
+sep = ";", header = TRUE)
+
+#eliminar filas repetidas si las hubiese, e imprimir cuantas filas se han eliminado
+n_filas_antes <- nrow(datos_limpios5)
+datos_limpios5%>%
+  distinct() -> datos_limpios_final
 #guardar el dataset limpio con row names FALSE para evitar que se guarde una columna extra con los índices
-write.csv(datos_limpios_final,"data/datos_meteorologicos_limpios.csv",row.names=FALSE)
+write.table(datos_limpios_final, 
+          "data/datos_meteorologicos_limpios.csv",
+          row.names = FALSE, #Esto evita que se guarde una columna extra con los índices de fila
+          sep=";",
+          quote = FALSE)  #Esto desactiva las comillas al inicio y fin de cada campo de texto
+n_filas_despues <- nrow(datos_limpios_final)
+n_filas_eliminadas <- n_filas_antes - n_filas_despues
+cat("Número de filas eliminadas debido a duplicados:", n_filas_eliminadas, "\n")
 ```
 
 
