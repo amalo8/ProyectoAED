@@ -1,0 +1,290 @@
+---
+title: "plots_ica"
+output: html_document
+date: "2025-11-01"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list=ls())
+```
+
+DEL Rmd de indice calidad del aire ya determinamos las estaciones que permiten calcular el ICA y su cobertura:
+
+Puerto Moll Trans. Ponent	 92.71
+Politecnico	85.96
+Puerto llit antic Turia 82.71
+Moli del Sol	81.45
+Avda. Francia	65.89
+Pista Silla	64.55
+Viveros 57.13	
+
+Vamos a decidir calcular el ICA mensual, para las estaciones que cubren >80% de dias: 
+
+Puerto Moll Trans. Ponent	 92.71
+Politecnico	85.96
+Puerto llit antic Turia 82.71
+Moli del Sol	81.45
+
+```{r}
+datos<-read.csv("data/datos_con_ica_2010_2025.csv",sep=";",header=TRUE)
+```
+calcular el $\text{ICA}$ promedio mensual para las cuatro estaciones más fiables, indicando claramente la cantidad de días faltantes ($\text{NA}$) en ese cálculo mensual.Utilizaremos el dataframe datos_ica_top (que contiene las cuatro estaciones con $>80\%$ de cobertura en el periodo 2010-2025).
+
+```{r}
+library(dplyr)
+library(lubridate)
+
+# Definir las estaciones de interés (ya están filtradas en datos_ica_top)
+estaciones_top <- c("Puerto Moll Trans. Ponent", "Politecnico", "Puerto llit antic Turia", "Moli del Sol")
+
+# Asegurar que el dataframe 'datos_ica_top' está preparado con Año y Mes
+# Recreamos datos_ica_top a partir de datos_ica_limpio para asegurarnos
+datos_ica_top <- datos %>%
+  filter(Estacion %in% estaciones_top) %>%
+  mutate(Año = year(Fecha), Mes = month(Fecha))
+
+# 1. Cálculo del resumen mensual
+ica_mensual_resumen <- datos_ica_top %>%
+  group_by(Estacion, Año, Mes) %>%
+  summarise(
+    # Calcular la media, excluyendo los NA (na.rm = TRUE)
+    ICA_Promedio_Mensual = mean(ICA_diario, na.rm = TRUE),
+    
+    # Contar cuántos días tenían NA en el ICA diario
+    Dias_NA_ICA = sum(is.na(ICA_diario)),
+    
+    # Contar el total de días que tenía la estación ese mes
+    Dias_Totales_Mes = n_distinct(Fecha),
+    .groups = 'drop'
+  ) %>%
+  # Limpiar la tabla: si ICA_Promedio_Mensual es NaN, significa que *todos* los días del mes eran NA.
+  mutate(
+    ICA_Promedio_Mensual = if_else(
+      is.nan(ICA_Promedio_Mensual), 
+      NA_real_, 
+      round(ICA_Promedio_Mensual, 2)
+    )
+  ) %>%
+  # Convertir el valor promedio a la categoría más representativa para referencia
+  mutate(
+    Categoria_ICA_Promedio = case_when(
+        ICA_Promedio_Mensual <= 1.5 ~ "Buena",
+        ICA_Promedio_Mensual <= 2.5 ~ "Razonablemente buena",
+        ICA_Promedio_Mensual <= 3.5 ~ "Regular",
+        ICA_Promedio_Mensual <= 4.5 ~ "Desfavorable",
+        ICA_Promedio_Mensual <= 5.5 ~ "Muy desfavorable",
+        ICA_Promedio_Mensual > 5.5 ~ "Extremadamente desfavorable",
+        TRUE ~ NA_character_
+    )
+  ) %>%
+  arrange(Estacion, Año, Mes)
+
+# 2. Mostrar el resultado
+print("Resumen de ICA Mensual (Promedio y Conteo de NAs) para estaciones TOP:")
+print(head(ica_mensual_resumen))
+```
+Un gráfico interactivo que muestre el $\text{ICA}$ promedio mensual por estación, con un esquema de color de "termómetro", es la forma perfecta de visualizar las tendencias de la calidad del aire y manejar los datos faltantes ($\text{NA}$).Para crear este tipo de visualización interactiva en $\text{R}$, el paquete más recomendado es ggplot2 para la creación del gráfico base, combinado con plotly para hacerlo interactivo. Utilizaremos el dataframe ica_mensual_resumen que acabamos de generar.
+
+Para un análisis detallado, necesitas un control interactivo que te permita seleccionar el año y el mes para ver una comparación puntual de las estaciones.Podemos modificar el gráfico de mapa de calor para que funcione como un panel de control (dashboard) simple. Como los gráficos de $\text{R}$ en $\text{RStudio}$ no tienen controles deslizantes integrados como tal, usaremos la interactividad de plotly para mostrar la evolución por año de una manera más dinámica.
+
+
+```{r}
+library(plotly)
+library(dplyr)
+library(lubridate)
+
+# 1. Preparación del DataFrame y Etiquetas
+ica_mensual_plot <- ica_mensual_resumen %>%
+  mutate(
+    # Crear una etiqueta legible para el mes (para el desplegable)
+    Mes_Nombre = month(Mes, label = TRUE, abbr = FALSE),
+    
+    # Crear el color de la barra basado en la categoría ICA
+    Color_Barra = case_when(
+        Categoria_ICA_Promedio == "Buena" ~ "#00E400",
+        Categoria_ICA_Promedio == "Razonablemente buena" ~ "#FFFF00",
+        Categoria_ICA_Promedio == "Regular" ~ "#FF7E00",
+        Categoria_ICA_Promedio == "Desfavorable" ~ "#FF0000",
+        Categoria_ICA_Promedio == "Muy desfavorable" ~ "#99004C",
+        Categoria_ICA_Promedio == "Extremadamente desfavorable" ~ "#7E0023",
+        TRUE ~ "#CCCCCC" # Gris para NA
+    ),
+    # Crear texto para el Tooltip
+    Tooltip_Text = case_when(
+      is.na(ICA_Promedio_Mensual) ~ paste0("Estación: ", Estacion, "<br>ICA: No disponible (", Dias_NA_ICA, " días NA)"),
+      TRUE ~ paste0(
+        "Estación: ", Estacion, "<br>",
+        "ICA Promedio: ", ICA_Promedio_Mensual, "<br>",
+        "Categoría: ", Categoria_ICA_Promedio, "<br>",
+        "Días con NA: ", Dias_NA_ICA
+      )
+    )
+  )
+
+# 2. Crear un objeto base de Plotly (escondemos todos los datos inicialmente)
+p <- plot_ly(ica_mensual_plot, type = 'bar')
+
+# 3. Definir las Opciones de los Menús Desplegables
+
+# Función para generar la estructura de botones de Plotly
+generate_dropdown_buttons <- function(df, column_name, filter_level) {
+  unique_values <- unique(df[[column_name]])
+  
+  # Incluir una opción 'Mostrar Todo'
+  buttons <- list(
+    list(method = "restyle",
+         args = list("visible", list(TRUE)),
+         label = paste("Todos los", filter_level))
+  )
+  
+  # Generar un botón para cada valor único
+  for (val in unique_values) {
+    # Crear un vector de TRUE/FALSE para visibility, TRUE solo para el valor actual
+    visibility_vector <- lapply(df[[column_name]], function(x) x == val)
+    
+    # Añadir el botón
+    buttons <- append(buttons, list(
+      list(method = "restyle",
+           args = list("visible", visibility_vector),
+           label = as.character(val))
+    ))
+  }
+  return(buttons)
+}
+
+# --- ATENCIÓN ---
+# Plotly con filtros complejos (múltiples desplegables) requiere que el gráfico
+# se genere con una traza por combinación de Estación/Mes/Año, lo cual es muy complejo.
+# El enfoque más simple y directo en R/Plotly es usar el filtro en el nivel más alto.
+
+# Usaremos un único desplegable que combine Año y Mes para una selección simple
+ica_mensual_plot <- ica_mensual_plot %>%
+  mutate(Anio_Mes = paste(Año, Mes_Nombre, sep = " - "))
+  
+aniomes_buttons <- generate_dropdown_buttons(ica_mensual_plot, "Anio_Mes", "Periodos")
+
+# 4. Crear el gráfico final con el botón de despliegue
+p_final <- ica_mensual_plot %>%
+  plot_ly(type = 'bar', 
+          x = ~Estacion, 
+          y = ~ICA_Promedio_Mensual, 
+          marker = list(color = ~Color_Barra), 
+          text = ~Tooltip_Text,
+          hoverinfo = 'text') %>%
+  layout(
+    title = 'Comparación del ICA Promedio por Estación (Selección de Periodo)',
+    xaxis = list(title = 'Estación'),
+    yaxis = list(title = 'ICA Promedio Mensual', range = c(0, 6.5), 
+                 tickvals = 1:6, 
+                 ticktext = c("Buena", "Razonablemente buena", "Regular", "Desfavorable", "Muy desfavorable", "Ext. Desfavorable")),
+    updatemenus = list(
+      list(
+        type = "dropdown",
+        active = 0,
+        buttons = aniomes_buttons,
+        direction = "down",
+        x = 0.1,
+        y = 1.15,
+        xanchor = 'left',
+        yanchor = 'top'
+      )
+    )
+  )
+
+p_final
+```
+
+
+
+```{r}
+library(ggplot2)
+library(plotly)
+library(lubridate)
+library(dplyr)
+
+# --- 1. DEFINE EL MES Y AÑO A VISUALIZAR ---
+ANO_SELECCIONADO <- 2023
+MES_SELECCIONADO <- 10 # Ejemplo: Octubre
+
+# --- 2. FILTRADO Y PREPARACIÓN DE DATOS (Con la corrección de Fecha NA) ---
+
+ica_diario_filtrado <- datos_ica_top %>%
+  filter(Año == ANO_SELECCIONADO, Mes == MES_SELECCIONADO) %>%
+  mutate(Dia = day(Fecha)) %>%
+  
+  # 1. Crear la columna de fecha como texto (para evitar error en format())
+  mutate(
+    Fecha_Texto = if_else(
+      is.na(Fecha), 
+      "Fecha Desconocida",
+      format(Fecha, "%Y-%m-%d")
+    )
+  ) %>%
+  # 2. Crear el Tooltip
+  mutate(
+    Tooltip_Text = case_when(
+      is.na(ICA_diario) ~ paste(
+        "Estación:", Estacion, "<br>",
+        "Fecha:", Fecha_Texto, "<br>",
+        "ICA: NA (Sin medición)"
+      ),
+      TRUE ~ paste(
+        "Estación:", Estacion, "<br>",
+        "Fecha:", Fecha_Texto, "<br>",
+        "ICA Diario:", ICA_diario, "(", Categoria_ICA, ")"
+      )
+    )
+  )
+
+# --- 3. DEFINIR PALETA DE COLORES "TERMÓMETRO" ---
+# Definimos los colores exactos para cada categoría
+colores_ica <- c(
+  "Buena" = "#4CAF50",                 # Verde
+  "Razonablemente buena" = "#CDDC39", # Lima
+  "Regular" = "#FFEB3B",              # Amarillo
+  "Desfavorable" = "#FF9800",          # Naranja
+  "Muy desfavorable" = "#F44336",      # Rojo
+  "Extremadamente desfavorable" = "#9C27B0" # Púrpura
+)
+
+# --- 4. CREACIÓN DEL GRÁFICO (VERSIÓN CORREGIDA) ---
+
+NOMBRE_MES <- month(MES_SELECCIONADO, label = TRUE, abbr = FALSE)
+TITULO_GRAFICO <- paste("Resumen Diario del ICA para", NOMBRE_MES, "de", ANO_SELECCIONADO)
+
+p_diario <- ggplot(ica_diario_filtrado, 
+                   aes(x = Dia, y = Estacion, 
+                       text = Tooltip_Text)) +
+  
+  # Opcional: una línea de fondo gris para conectar los días
+  geom_line(aes(group = Estacion), color = "grey80", linetype = "dashed") +
+  
+  # La capa principal: PUNTOS coloreados por Categoría
+  geom_point(aes(color = Categoria_ICA), size = 3) +
+  
+  # Aplicamos la escala de color manual que definimos
+  scale_color_manual(
+    values = colores_ica,
+    name = "Categoría ICA",
+    # Define qué hacer si una categoría es NA (p.ej. "Sin datos")
+    na.value = "grey50" 
+  ) +
+  
+  # Eje X sí es numérico y continuo
+  scale_x_continuous(breaks = seq(1, 31, by = 2)) +
+  
+  # El eje Y es discreto (categórico), no necesita scale_y_continuous
+  
+  labs(
+    title = TITULO_GRAFICO,
+    x = paste("Día del mes (", NOMBRE_MES, ")"),
+    y = "Estación de Medición" # ETIQUETA Y CORREGIDA
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+
+# --- 5. CONVERTIR A INTERACTIVO ---
+ggplotly(p_diario, tooltip = "text")
+```
+
