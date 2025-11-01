@@ -241,9 +241,10 @@ if (class(datos_con_ica$Fecha)=="character"){
 dias_totales_2008_2025_teorico <- as.numeric(as.Date("2025-08-31") - as.Date("2010-01-01")) + 1
 print(paste("Total de días TEÓRICOS entre 01/01/2010 y 31/08/2025:", dias_totales_2008_2025_teorico))
 
-# 3. Filtrar datos entre 2010 y 2025
+# 3. Filtrar datos entre 2010 y 2025 con las columnas unicamente de las sustancias del ica y los ica calculados
 datos_con_ica_2010_2025 <- datos_con_ica %>%
-  filter(year(Fecha) >= 2010 & year(Fecha) <= 2025)
+  filter(year(Fecha) >= 2010 & year(Fecha) <= 2025)%>%
+  select(Fecha,Estacion,PM10,PM2.5,NO2,O3,SO2,ICA_diario,Categoria_ICA)
 
 #4. Guardar el archivo con las categorias ICA recordando que todavia hay algunas fechas con valores faltantes, y tb habra estaciones con ICA NA, evidentemente
 write.table(datos_con_ica_2010_2025,"data/datos_con_ica_2010_2025.csv",row.names = FALSE, 
@@ -252,8 +253,97 @@ write.table(datos_con_ica_2010_2025,"data/datos_con_ica_2010_2025.csv",row.names
 
 
 ```
+Quieres identificar las estaciones que tienen la mayor cobertura de datos $\text{ICA}$ a lo largo del período 2010-2025. Una estación que mide el $\text{ICA}$ "siempre" sería aquella que tiene un valor $\text{ICA}$ calculado (no $\text{NA}$) para todos los días de su registro en ese periodo.
+
+ Quieres limpiar tu conjunto de datos de los días "perdidos"; es decir, las fechas en las que el $\text{ICA}$ no pudo calcularse en ninguna estación de Valencia.Este es un paso excelente, ya que asegura que tu análisis de tendencias anuales y por estación se base únicamente en días donde al menos había alguna medición representativa del $\text{ICA}$ para la ciudad.Utilizaremos el dataframe datos_con_ica_2010_2025 y las fechas sin $\text{ICA}$ que identificamos previamente.
+```{r}
+library(dplyr)
+library(lubridate)
+
+# Aseguramos que Fecha esté en formato Date si no lo estaba ya
+if (class(datos_con_ica_2010_2025$Fecha) == "character") {
+  datos_con_ica_2010_2025 <- datos_con_ica_2010_2025 %>%
+    mutate(Fecha = dmy(Fecha))
+}
+
+# 1. Identificar las fechas que no tienen ICA en NINGUNA estación (2010-2025)
+fechas_sin_ica <- datos_con_ica_2010_2025 %>%
+  group_by(Fecha) %>%
+  summarise(
+    ICA_No_Calculado = all(is.na(ICA_diario)),
+    .groups = 'drop'
+  ) %>%
+  filter(ICA_No_Calculado == TRUE) %>%
+  pull(Fecha) # Extrae las fechas como un vector
+
+# 2. Filtrar el dataframe original (2010-2025) para EXCLUIR esas fechas
+n_filas_original <- nrow(datos_con_ica_2010_2025)
+n_dias_perdidos <- length(fechas_sin_ica)
+
+datos_ica_limpio <- datos_con_ica_2010_2025 %>%
+  # El signo '!' niega la condición, manteniendo solo las fechas que NO están en la lista
+  filter(!(Fecha %in% fechas_sin_ica))
+
+n_filas_limpias <- nrow(datos_ica_limpio)
+n_filas_removidas <- n_filas_original - n_filas_limpias
+
+print(paste("Fechas únicas removidas (días sin ICA en ninguna estación):", n_dias_perdidos))
+print(paste("Filas totales removidas:", n_filas_removidas))
+print(paste("Tamaño del dataset original (2010-2025):", n_filas_original))
+print(paste("Tamaño del nuevo dataset limpio:", n_filas_limpias))
+
+```
+El proceso consiste en calcular dos métricas para cada estación:Días Registrados: Total de días que esa estación tiene en el dataset (independientemente del $\text{ICA}$).Días con $\text{ICA}$ Válido: Total de días en los que se pudo calcular el $\text{ICA}$ (es decir, los 5 contaminantes estaban presentes).Una estación "ideal" tendrá un porcentaje de cobertura del $\text{ICA}$ del $100\%$.
+
+```{r}
+library(dplyr)
+library(lubridate)
+
+# Aseguramos que el dataframe de trabajo sea el filtrado 2010-2025 y limpio
+cobertura_estaciones <- datos_ica_limpio %>%
+  group_by(Estacion) %>%
+  summarise(
+    Total_Dias_Registrados = n_distinct(Fecha),
+    Total_Dias_ICA_Valido = sum(!is.na(ICA_diario)),
+    Cobertura_ICA_Pct = (Total_Dias_ICA_Valido / Total_Dias_Registrados) * 100,
+    .groups = 'drop'
+  ) %>%
+  # Redondear el porcentaje para mejor visualización
+  mutate(Cobertura_ICA_Pct = round(Cobertura_ICA_Pct, 2)) %>%
+  # Ordenar de mayor a menor cobertura
+  arrange(desc(Cobertura_ICA_Pct))
+
+print("Análisis de Cobertura del ICA por Estación (2010-2025):")
+print(cobertura_estaciones)
 
 
+estaciones_cobertura_completa <- cobertura_estaciones %>%
+  filter(Cobertura_ICA_Pct == 100)
+
+if (nrow(estaciones_cobertura_completa) > 0) {
+  print("Estaciones con COBERTURA COMPLETA (100%) del ICA entre 2010 y 2025:")
+  print(estaciones_cobertura_completa)
+} else {
+  print("¡Advertencia! Ninguna estación alcanzó el 100% de cobertura del ICA para todos sus días registrados entre 2010 y 2025.")
+  print("Mostrando las 3 estaciones con mayor cobertura:")
+  print(head(cobertura_estaciones, 3))
+}
+```
+
+Buscaremos las estaciones que tienen 0% de cobertura del $\text{ICA}$ en el periodo 2010-2025. Estas son las que, a pesar de tener registros de datos (probablemente meteorológicos o de otros contaminantes menos críticos), nunca cumplieron con el requisito de medir los cinco contaminantes esenciales ($PM_{10}$, $PM_{2.5}$, $NO_2$, $O_3$, $SO_2$) en ningún día de ese periodo
+```{r}
+
+# Reutilizamos la tabla de cobertura calculada en el paso anterior
+# (Asumiendo que 'cobertura_estaciones' está en el entorno global)
+
+estaciones_sin_ica <- cobertura_estaciones %>%
+  filter(Cobertura_ICA_Pct == 0)
+
+print("Estaciones que NUNCA calcularon el ICA (0% de cobertura) entre 2010 y 2025:")
+print(estaciones_sin_ica)
+
+print(paste("Total de estaciones que no contribuyen al análisis del ICA:", nrow(estaciones_sin_ica)))
+```
 
 
 
