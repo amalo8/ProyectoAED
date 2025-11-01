@@ -1,0 +1,259 @@
+---
+title: "indice_calidad_aire"
+output: html_document
+date: "2025-10-31"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list = ls())
+```
+
+El Índice de Calidad del Aire (ICA) se calcula a partir de la concentración de los contaminantes más relevantes. Para determinar qué estaciones son adecuadas, primero debemos identificar los contaminantes esenciales.
+
+El cálculo del $ICA$ se basa en el peor de los subíndices de los principales contaminantes. Para obtener un índice completo y representativo (siguiendo los estándares europeos), se necesitan los siguientes cinco contaminantes obligatorios presentes en tus datos:
+$PM_{10}$ (Partículas en suspensión $< 10 \mu m$)
+$PM_{2.5}$ (Partículas en suspensión $< 2.5 \mu m$)
+${NO}_2$ (Dióxido de nitrógeno)
+${O}_3$ (Ozono)
+${SO}_2}$ (Dióxido de azufre)
+
+
+Es fundamental filtrar los datos para quedarte solo con las estaciones que tienen una cobertura de datos adecuada de los cinco contaminantes obligatorios del Índice de Calidad del Aire (${ICA}$)
+
+Agrupamos por año, mes y estación, y mostramos la cobertura de cada contaminante para ese período.
+
+La definición que hemos estado utilizando (basada en el estándar europeo, el Índice Común Europeo de Calidad del Aire - CAQI o el español $\text{ICA}$) establece que, para reportar un índice de calidad del aire completo y representativo del día para una ubicación:Es necesario tener la medición de $\text{TODOS}$ los contaminantes críticos ($PM_{10}$, $PM_{2.5}$, $NO_2$, $O_3$, $SO_2$) para ese día en esa estación.Explicación del Principio del "Peor Subíndice"El $\text{ICA}$ diario se basa en el principio del peor escenario:Se calcula un subíndice para cada uno de los cinco contaminantes (convirtiendo la concentración a una escala de 1 a 6, como hicimos).El $\text{ICA}$ final del día es el valor máximo (el peor) de esos cinco subíndices.Si falta un contaminante (por ejemplo, $PM_{2.5}$), no puedes saber si el subíndice de ese contaminante faltante podría haber sido el peor de todos, lo que llevaría a subestimar el riesgo real. Por esta razón, el $\text{ICA}$ completo se marca como $NA$ si falta cualquiera de los cinco.
+
+```{r}
+library(dplyr)
+library(lubridate)
+
+datos<-read.csv("data/datos_meteorologicos_limpios.csv",sep=";",header=TRUE)
+
+# 1. Preparación de datos
+datos_preparados <- datos %>%
+  # Asegúrate de que la columna Fecha se lea como fecha y extrae Año y Mes
+  mutate(Fecha = dmy(Fecha), # Asume formato Día/Mes/Año
+         Año = year(Fecha),
+         Mes = month(Fecha)) 
+
+# Definir los contaminantes críticos para el ICA
+contaminantes_ica <- c("PM10", "PM2.5", "NO2", "O3", "SO2")
+
+# 2. Análisis de Cobertura de Datos por Mes, Año y Estación
+cobertura_mensual <- datos_preparados %>%
+  group_by(Año, Mes, Estacion) %>%
+  summarise(
+    # Calcular el porcentaje de valores NO-NA para cada contaminante
+    PM10_pct = mean(!is.na(PM10)) * 100,
+    PM2.5_pct = mean(!is.na(PM2.5)) * 100,
+    NO2_pct = mean(!is.na(NO2)) * 100,
+    O3_pct = mean(!is.na(O3)) * 100,
+    SO2_pct = mean(!is.na(SO2)) * 100,
+    .groups = 'drop'
+  )
+print(cobertura_mensual)
+```
+
+
+Directamente calculamos el Índice de Calidad del Aire ($\ICA$) diarios para las filas que cuenten con los 5 contaminantes obligatorios.
+```{r}
+# 1. Definición de la Función para Asignar Categoría y Valor Numérico
+# Esta función asigna un valor numérico (1=Buena a 6=Extremadamente desfavorable)
+# a la concentración de un contaminante específico basándose en los umbrales del ICA.
+asignar_categoria <- function(concentracion, contaminante) {
+  if (contaminante == "SO2") {
+    valor_numerico <- case_when(
+      is.na(concentracion) ~ 0,
+      concentracion <= 100 ~ 1, # Buena
+      concentracion <= 200 ~ 2, # Razonablemente buena
+      concentracion <= 350 ~ 3, # Regular
+               concentracion <= 500 ~ 4, # Desfavorable
+               concentracion <= 750 ~ 5, # Muy desfavorable
+               TRUE ~ 6# Extremadamente desfavorable
+    )
+  } else if (contaminante == "PM2.5") {
+    valor_numerico <- case_when(
+               is.na(concentracion) ~ 0,
+               concentracion <= 10 ~ 1,
+               concentracion <= 20 ~ 2,
+               concentracion <= 25 ~ 3,
+               concentracion <= 50 ~ 4,
+               concentracion <= 75 ~ 5,
+               TRUE ~ 6
+    )
+  } else if (contaminante == "PM10") {
+    valor_numerico <- case_when(
+               is.na(concentracion) ~ 0,
+               concentracion <= 20 ~ 1,
+               concentracion <= 40 ~ 2,
+               concentracion <= 50 ~ 3,
+               concentracion <= 100 ~ 4,
+               concentracion <= 150 ~ 5,
+               TRUE ~ 6
+    )
+  } else if (contaminante == "O3") {
+    valor_numerico <- case_when(
+               is.na(concentracion) ~ 0,
+               concentracion <= 50 ~ 1,
+               concentracion <= 100 ~ 2,
+               concentracion <= 130 ~ 3,
+               concentracion <= 240 ~ 4,
+               concentracion <= 380 ~ 5,
+               TRUE ~ 6
+    )
+  } else if (contaminante == "NO2") {
+    valor_numerico <- case_when(
+               is.na(concentracion) ~ 0,
+               concentracion <= 40 ~ 1,
+               concentracion <= 90 ~ 2,
+               concentracion <= 120 ~ 3,
+               concentracion <= 230 ~ 4,
+               concentracion <= 340 ~ 5,
+               TRUE ~ 6
+       )
+  } else {
+       valor_numerico <- NA_real_
+  }
+  return(valor_numerico)
+}
+
+# 2. Cálculo del ICA y Asignación de NA si faltan datos
+
+datos_con_ica <- datos %>%
+  rowwise() %>%
+  mutate(
+       # Verifica si TODOS los 5 contaminantes están presentes (NO son NA)
+       tiene_5_contaminantes = !is.na(PM10) & !is.na(PM2.5) & !is.na(NO2) & !is.na(O3) & !is.na(SO2),
+       
+       # Calcula los valores numéricos del ICA solo si los 5 están presentes
+       ICA_valores = if (tiene_5_contaminantes) {
+               list(c(
+                 asignar_categoria(PM10, "PM10"),
+                 asignar_categoria(PM2.5, "PM2.5"),
+                 asignar_categoria(NO2, "NO2"),
+                 asignar_categoria(O3, "O3"),
+                 asignar_categoria(SO2, "SO2")
+               ))
+       } else {
+               list(NA_real_)
+       },
+       
+        # El ICA diario es el máximo (peor) de los subíndices.
+        # Si ICA_valores es NA, max() devolverá NA, que es el comportamiento deseado.
+        ICA_diario = max(unlist(ICA_valores), na.rm = TRUE),
+
+        # Si max() devuelve -Inf (porque solo hay NA y na.rm=TRUE), lo convertimos a NA
+        ICA_diario = if_else(is.infinite(ICA_diario), NA_real_, ICA_diario),
+       
+       # Convierte el valor numérico final del ICA a la categoría de texto
+       Categoria_ICA = case_when(
+               ICA_diario == 6 ~ "Extremadamente desfavorable",
+               ICA_diario == 5 ~ "Muy desfavorable",
+               ICA_diario == 4 ~ "Desfavorable",
+               ICA_diario == 3 ~ "Regular",
+               ICA_diario == 2 ~ "Razonablemente buena",
+               ICA_diario == 1 ~ "Buena",
+               TRUE ~ NA_character_ # Esto asigna NA si ICA_diario es NA
+       )
+  ) %>%
+  ungroup() %>%
+  # Eliminamos las columnas auxiliares
+  select(-ICA_valores, -tiene_5_contaminantes)
+
+# 3. Mostrar el resultado
+print(head(datos_con_ica))
+print(paste("Total de registros en el dataset:", nrow(datos_con_ica)))
+print(paste("Registros con ICA calculado (no NA):", sum(!is.na(datos_con_ica$ICA_diario))))
+
+```
+
+```{r}
+library(dplyr)
+library(lubridate)
+library(tidyr) # Necesaria para la función 'paste' dentro de summarise
+
+# 0. Asegurar el formato de fecha (necesario para usar year())
+if (class(datos_con_ica$Fecha) == "character") {
+  datos_con_ica$Fecha <- dmy(datos_con_ica$Fecha)
+}
+
+# 1. Identificar los días donde el ICA fue NA en TODAS las estaciones
+dias_sin_ica_por_fecha <- datos_con_ica %>%
+  group_by(Fecha) %>%
+  summarise(
+    ICA_No_Calculado = all(is.na(ICA_diario)),
+    .groups = 'drop'
+  ) %>%
+  filter(ICA_No_Calculado == TRUE)
+
+# 2. Conteo de Días Sin ICA por Año, incluyendo la lista de fechas
+resumen_dias_perdidos_con_lista <- dias_sin_ica_por_fecha %>%
+  mutate(
+    Año = year(Fecha),
+    Fecha_str = format(Fecha, "%d/%m/%Y") # Formatear la fecha para la lista
+  ) %>%
+  group_by(Año) %>%
+  summarise(
+    # Cuenta el número total de días perdidos ese año
+    Dias_Sin_ICA = n(),
+    # Combina todas las fechas en una sola cadena de texto, separadas por ", "
+    Lista_Fechas_Perdidas = paste(Fecha_str, collapse = ", "),
+    .groups = 'drop'
+  )
+
+# 3. Mostrar Resultados
+print("----------------------------------------------------------------")
+print("Análisis Anual de Días SIN ICA con Lista de Fechas (2004-2025)")
+print("----------------------------------------------------------------")
+print(resumen_dias_perdidos_con_lista)
+```
+NOS QUEDAOS ENTONCES CON LOS DATOS DE 2010-2025 REDUCIENDO UN:
+```{r}
+
+total_dias_sin_ica <- colSums(resumen_dias_perdidos_con_lista["Dias_Sin_ICA"])
+
+# Filtramos la tabla resumen generada previamente para el rango 2010-2025
+# (Asumiendo que 'resumen_dias_perdidos_con_lista' ya contiene la columna Año)
+resumen_2010_2025 <- resumen_dias_perdidos_con_lista %>%
+    filter(Año >= 2010 & Año <= 2025)
+
+# Calculamos la suma total de días sin ICA en ese periodo
+total_dias_sin_ica_2010_2025 <- colSums(resumen_2010_2025["Dias_Sin_ICA"])
+
+print(paste("Total de Días SIN ICA calculado en ninguna estación (2010-2025):", total_dias_sin_ica_2010_2025))
+
+reduccion<-((total_dias_sin_ica-total_dias_sin_ica_2010_2025)/total_dias_sin_ica)*100
+print(paste("Reduciendo el número de valores faltantes en un:",round(reduccion,3),"%"))
+```
+
+
+
+```{r}
+# 0.Pasar de character 01/01/2024 a fecha con formato 2024-01-01
+if (class(datos_con_ica$Fecha)=="character"){
+  datos_con_ica$Fecha<-dmy(datos_con_ica$Fecha)}
+
+# 2. Cálculo del total de días entre 2010 y 2025 
+# Usaré tu fecha final (31/08/2025) para el cálculo teórico de días.
+
+dias_totales_2008_2025_teorico <- as.numeric(as.Date("2025-08-31") - as.Date("2010-01-01")) + 1
+print(paste("Total de días TEÓRICOS entre 01/01/2010 y 31/08/2025:", dias_totales_2008_2025_teorico))
+
+# 3. Filtrar datos entre 2010 y 2025
+datos_con_ica_2010_2025 <- datos_con_ica %>%
+  filter(year(Fecha) >= 2010 & year(Fecha) <= 2025)
+
+#4. Guardar el archivo con las categorias ICA recordando que todavia hay algunas fechas con valores faltantes, y tb habra estaciones con ICA NA, evidentemente
+write.table(datos_con_ica_2010_2025,"data/datos_con_ica_2010_2025.csv",row.names = FALSE, 
+          sep=";",
+          quote = FALSE)
+
+
+```
+
+
+
+
+
