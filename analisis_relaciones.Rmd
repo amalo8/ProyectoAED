@@ -1,0 +1,151 @@
+---
+title: "Analisis_Relaciones"
+output: html_document
+date: "2025-10-31"
+---
+
+##Analisis de relaciones Pearson
+El objetivo es analizar las relaciones directamente lineales con Pearson y Spearman desde una vista general
+
+```{r}
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+
+filename <- "data/datos_con_ica_2010_2025.csv"
+datos <- read.csv(filename, sep=";", header=TRUE)
+
+
+# Función para graficar matriz de correlación
+plot_cor <- function(cor_long, title_name){
+  ggplot(cor_long, aes(x = Var1, y = Var2, fill = Freq)) +
+    geom_tile(color = "white") +
+    geom_text(aes(label = round(Freq, 2)), color = "black", size = 4) +
+    scale_fill_gradient2(low = "blue", high = "red", mid = "white",
+                         midpoint = 0, limit = c(-1,1), space = "Lab",
+                         name = "Correlación") +
+    scale_y_discrete(limits = rev(levels(cor_long$Var2))) +  # Diagonal arriba izquierda
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle = 45, vjust = 0, hjust = 0),  # Nombres arriba
+      axis.text.y = element_text(size = 10),
+      plot.title = element_text(hjust = 0.5, face = "bold", size = 14)
+    ) +
+    labs(title = title_name, x = "", y = "")
+}
+
+analisis_pearson_spearman <- function(datos_filtrados, texto=""){
+    # Correlaciones
+  cor_pearson <- cor(datos_filtrados, method = "pearson", use = "pairwise.complete.obs")
+  cor_spearman <- cor(datos_filtrados, method = "spearman", use = "pairwise.complete.obs")
+  
+  print(cor_pearson)
+  print(cor_spearman)
+  # Convertir a formato largo para ggplot
+  cor_plt_pearson <- as.data.frame(as.table(cor_pearson))%>%filter(!is.na(Freq))
+  cor_plt_spearman <- as.data.frame(as.table(cor_spearman))%>%filter(!is.na(Freq))
+  
+  
+  # Graficar Pearson
+  print(plot_cor(cor_plt_pearson, paste("Matriz de Correlación Pearson",texto)))
+  
+  # Graficar Spearman
+  print(plot_cor(cor_plt_spearman, paste("Matriz de Correlación Spearman",texto)))
+  
+  
+  #----------------- Comparación Pearson vs Spearman -------------------
+  # Combinar ambos en un solo data frame
+  cor_comparacion <- cor_plt_pearson %>%
+    rename(Pearson = Freq) %>%
+    left_join(cor_plt_spearman %>% rename(Spearman = Freq),
+              by = c("Var1", "Var2")) %>%
+    mutate(
+      Par = paste(Var1, Var2, sep = " - "),
+      Diferencia = Pearson - Spearman
+    )
+  
+  # --- Filtrar duplicados e invertir pares ---
+  cor_comparacion <- cor_comparacion %>%
+    filter(Var1 != Var2) %>%
+    rowwise() %>%
+    mutate(pair_id = paste(sort(c(Var1, Var2)), collapse = "_")) %>%
+    ungroup() %>%
+    distinct(pair_id, .keep_all = TRUE) %>%
+    mutate(Magnitud_media = (abs(Pearson) + abs(Spearman))/2) %>%
+    arrange(desc(Magnitud_media)) %>%
+    mutate(Par = factor(Par, levels = Par))  # orden para la leyenda
+  
+  # --- Crear colores de alto contraste ---
+  n_pares <- nlevels(cor_comparacion$Par)
+  colores <- viridis(n_pares, option = "turbo")  # colores distintos y saturados
+  
+  # --- Gráfica ---
+  p_comparacion <- ggplot(cor_comparacion, aes(x = Pearson, y = Spearman, color = Par)) +
+    geom_point(size = 3.5, alpha = 0.95) +  # alpha alto para más visibilidad
+    geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "gray40") +
+    scale_color_manual(values = colores) +  # asignar colores de alto contraste
+    theme_minimal(base_size = 14) +
+    coord_equal() +
+    labs(
+      title = paste("Comparación entre correlaciones de Pearson y Spearman", texto),
+      subtitle = "Cada punto representa un par único de variables; colores de alto contraste",
+      x = "Correlación de Pearson",
+      y = "Correlación de Spearman",
+      color = "Par de variables"
+    ) +
+    theme(
+      legend.position = "right",
+      legend.title = element_text(size = 12),
+      legend.text = element_text(size = 10),
+      plot.title = element_text(face = "bold", size = 16),
+      plot.subtitle = element_text(size = 12)
+    ) +
+    guides(color = guide_legend(ncol = 2, override.aes = list(size = 4, alpha = 1)))
+  
+  print(p_comparacion)
+}
+
+# Convertir variables numéricas
+datos <- datos %>%
+  mutate(across(c(PM10, PM2.5, NO2, O3, SO2, ICA_diario), as.numeric))
+
+vars_numericas <- c("PM10", "PM2.5", "NO2", "O3", "SO2", "ICA_diario")
+df_num <- datos %>% select(all_of(vars_numericas))
+
+analisis_pearson_spearman(datos_filtrados = df_num)
+```
+
+#############################################################################################
+#############################################################################################
+#############################################################################################
+## Análisis de Pearson y Spearman por estaciones
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+
+filename <- "data/datos_con_ica_2010_2025.csv"
+datos <- read.csv(filename, sep=";", header=TRUE)
+
+# Convertir variables numéricas
+
+vars_numericas <- c("PM10", "PM2.5", "NO2", "O3", "SO2", "ICA_diario")
+
+datos <- datos %>%
+  mutate(across(vars_numericas, as.numeric))
+
+for(estacion in unique(datos$Estacion)){
+
+    
+  df_actual <- datos %>%
+    filter(Estacion == estacion) %>%
+    select(all_of(vars_numericas))
+  
+  print(nrow(df_actual))
+  analisis_pearson_spearman(df_actual, estacion)
+}
+```
+
