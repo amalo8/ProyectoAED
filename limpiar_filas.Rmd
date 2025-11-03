@@ -1,0 +1,74 @@
+---
+title: "Limpiar_filas"
+output: html_document
+date: "2025-10-31"
+---
+
+El objetivo ahora es eliminar las filas que no tengan nada de información de los
+datos meteorológicos
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+
+filename <- "data/datos_con_ica_2010_2025.csv"
+datos <- read.csv(filename, sep=";", header=TRUE)
+
+print("Datos originales (número de filas):")
+nrow(datos)
+vars_numericas <- c("PM10", "PM2.5", "NO2", "O3", "SO2", "ICA_diario")
+
+
+df_limpio <- datos %>%
+  filter(!if_all(all_of(vars_numericas), is.na))
+
+print("Datos limpios, eliminando filas con TODAS las columnas NA (número de filas):")
+nrow(df_limpio)
+
+for(i in length(vars_numericas):1){
+  df_limpio <- datos %>%
+  filter(rowSums(is.na(select(., all_of(vars_numericas)))) <= i)
+  
+  cat("Datos limpios, eliminando filas donde hay almenos ", i, " NA's")
+  print(nrow(df_limpio))
+}
+
+# df_limpio <- datos %>%
+#   filter(rowSums(is.na(select(., all_of(vars_numericas)))) <= i)
+```
+
+
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+filename <- "data/datos_con_ica_2010_2025.csv"
+datos <- read.csv(filename, sep=";", header=TRUE)
+
+vars_numericas <- c("PM10", "PM2.5", "NO2", "O3", "SO2", "ICA_diario")
+
+##########################
+relacion_min = 0.2
+##########################
+
+df <- datos %>%
+  mutate(across(c(PM10, PM2.5, NO2, O3, SO2, ICA_diario), as.numeric)) %>%
+  select(all_of(vars_numericas))
+
+cor_pearson <- cor(df, method = "pearson", use = "pairwise.complete.obs")
+cor_spearman <- cor(df, method = "spearman", use = "pairwise.complete.obs")
+
+
+# Convertir en formato largo
+cor_long <- as.data.frame(as.table(cor_pearson)) %>%
+  filter(Var1 != Var2) %>%
+  mutate(abs_corr = abs(Freq)) %>%
+  filter(abs_corr >= relacion_min)
+
+# Ver pares correlacionados
+print("Pares correlacionados según Pearson:")
+print(cor_long)
+```
