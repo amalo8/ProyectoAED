@@ -1,0 +1,391 @@
+---
+title: "1. Análisis del Propio ICA"
+output: html_document
+date: "2025-11-03"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list = ls())
+```
+
+1. Preguntas sobre la Calidad del Aire (El ICA)
+
+```{r}
+data<-read.csv("data/datos_ica_final_imputado_2010-2025.csv",sep=";",header=TRUE)
+```
+
+
+Pregunta General: ¿Cuál es la distribución general de la calidad del aire en Valencia (2010-2025)? ¿Son más frecuentes los días de buena, moderada o mala calidad del aire (ICA)?
+```{r}
+# --- 1: Cargar librerías necesarias ---
+library(dplyr)
+library(ggplot2)
+
+# --- 2: Calcular la distribución ---
+
+# Primero, contamos los días por categoría y calculamos el porcentaje
+distribucion_ica <- data %>%
+  # Agrupamos por el valor numérico (para ordenar) y la categoría
+  group_by(ICA_diario, Categoria_ICA) %>%
+  summarise(
+    Total_Dias = n(),
+    .groups = 'drop'
+  ) %>%
+  # Calculamos el porcentaje total
+  mutate(
+    Porcentaje = round((Total_Dias / sum(Total_Dias)) * 100, 2)
+  ) %>%
+  # Ordenamos por el índice de calidad (1=Buena, 6=Mala)
+  arrange(ICA_diario)
+
+# --- 3: Mostrar la tabla de resultados ---
+print("--- Distribución General del ICA (2010-2025) ---")
+print(distribucion_ica)
+
+# --- 4: Visualizar la distribución ---
+
+# Para que el gráfico se ordene correctamente (de Buena a Mala),
+# convertimos Categoria_ICA a un factor ordenado.
+distribucion_ica$Categoria_ICA_ordenada <- factor(
+  distribucion_ica$Categoria_ICA,
+  levels = distribucion_ica$Categoria_ICA
+)
+
+ggplot(distribucion_ica, aes(x = Categoria_ICA_ordenada, y = Porcentaje, fill = Categoria_ICA_ordenada)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  # Añade el texto del porcentaje encima de cada barra
+  geom_text(aes(label = paste0(Porcentaje, "%")), vjust = -0.3, size = 3.5) +
+  labs(
+    title = "Distribución de la Calidad del Aire en Valencia (2010-2025)",
+    subtitle = "Basado en datos imputados de 3 estaciones",
+    x = "Calidad del Aire (ICA)",
+    y = "Porcentaje de Días (%)"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+Basado en la estructura de los datos, la respuesta más probable que obtendrás es:
+
+Los días de calidad del aire "Buena" y "Razonablemente buena" son, con diferencia, los más frecuentes.
+
+Los días con calidad "Regular" serán menos comunes.
+
+Los días de calidad "Desfavorable" o peor ("Muy desfavorable", "Extremadamente desfavorable") serán muy poco frecuentes o incluso inexistentes (0 días) en el conjunto de datos.
+
+En resumen, la calidad general del aire en Valencia, según los datos de estas tres estaciones entre 2010 y 2025, es predominantemente buena.
+
+
+
+
+Pregunta de Tendencia: ¿Ha mejorado o empeorado la calidad del aire (ICA) en la última década? ¿Se observa una tendencia lineal (al alza o a la baja) desde 2010?
+```{r}
+# --- 2: Calcular el ICA promedio por año ---
+# Agrupamos por Año y calculamos la media del valor numérico del ICA
+ica_tendencia_anual <- data %>%
+  group_by(Año) %>%
+  summarise(
+    ICA_promedio_anual = mean(ICA_diario, na.rm = TRUE)
+  )
+
+print("--- ICA Promedio Anual (2010-2025) ---")
+print(ica_tendencia_anual)
+
+# --- 3: Graficar la tendencia lineal ---
+ggplot(ica_tendencia_anual, aes(x = Año, y = ICA_promedio_anual)) +
+  geom_line(color = "blue", linewidth = 1) + # Línea de los datos reales
+  geom_point(color = "blue", size = 2) +    # Puntos de los datos reales
+  
+  # Esta es la línea de tendencia lineal (método 'lm')
+  geom_smooth(method = "lm", se = FALSE, color = "red", linetype = "dashed") +
+  
+  labs(
+    title = "Tendencia de la Calidad del Aire en Valencia (2010-2025)",
+    subtitle = "Tendencia lineal (roja) sobre el ICA promedio anual (azul)",
+    x = "Año",
+    y = "ICA Promedio Anual (1 = Bueno, 6 = Malo)"
+  ) +
+  theme_minimal() +
+  scale_x_continuous(breaks = seq(min(ica_tendencia_anual$Año), max(ica_tendencia_anual$Año), by = 2)) # Ajusta los ejes
+```
+Línea Roja de Tendencia (Regresión Lineal):
+
+Si la línea roja tiene pendiente negativa (va hacia abajo): Significa que el ICA promedio anual está disminuyendo. Por lo tanto, la calidad del aire ha mejorado en la última década.
+
+Si la línea roja tiene pendiente positiva (va hacia arriba): Significa que el ICA promedio está aumentando. Por lo tanto, la calidad del aire ha empeorado.
+
+Si la línea roja es casi plana: No hay una tendencia lineal significativa de mejora o empeoramiento.
+
+
+¿Como influyó el periodo de pandemia? 
+Esta es una pregunta clásica de análisis de eventos. La hipótesis es que el confinamiento estricto durante la primavera de 2020 (reducción drástica del tráfico y la industria) debería haber resultado en una mejora notable de la calidad del aire.
+
+
+```{r}
+
+# --- 2: Calcular el ICA promedio para CADA mes ---
+ica_temporal_continua <- data %>% 
+  filter(as.Date(Fecha)>=2020)%>%
+  mutate(
+    # Aseguramos que 'Fecha' sea tipo Date 
+    Fecha = as.Date(Fecha)) %>%
+    filter(
+    Fecha >= as.Date("2020-01-01"),
+    Fecha <= as.Date("2021-12-31")) %>%
+    # 'floor_date' ahora funciona porque 'Fecha' es Date
+    mutate(Fecha_Mes = floor_date(Fecha, "month")
+  ) %>%
+  group_by(Fecha_Mes) %>%
+  summarise(
+    ICA_promedio_mensual = mean(ICA_diario, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+# --- 3: Graficar la serie temporal continua ---
+ggplot(ica_temporal_continua, aes(x = Fecha_Mes, y = ICA_promedio_mensual)) +
+  geom_line(color = "steelblue", linewidth = 0.8) +
+  
+  # Resaltamos el periodo de confinamiento estricto
+  annotate("rect",
+           xmin = as.Date("2020-03-15"),
+           xmax = as.Date("2020-06-21"),
+           ymin = -Inf, ymax = Inf,
+           fill = "red", alpha = 0.2) +
+  
+  # Texto de confinamiento
+  annotate("text",
+           x = as.Date("2020-05-01"), 
+           y = max(ica_temporal_continua$ICA_promedio_mensual) * 0.95, 
+           label = "Confinamiento 2020",
+           color = "red",
+           fontface = "bold",
+           size = 3.5) +
+  
+  labs(
+    title = "Evolución Temporal del ICA Promedio Mensual durante el COVID-19 (2020-2021)",
+    x = "Fecha",
+    y = "ICA Promedio Mensual (1 = Mejor, 6 = Peor)"
+  ) +
+  scale_x_date(
+      # Ponemos un 'break' cada mes
+      date_breaks = "1 month",  
+      # FORMATO: %b (Mes abr.) %Y (Año) -> "Ene 2020"
+      date_labels = "%b %Y"      
+  ) +
+  
+  theme_minimal() +
+  theme(
+    # Rotamos las etiquetas del eje X 60 grados en diagonal
+    # hjust=1 alinea el final de la etiqueta al 'tick'
+    axis.text.x = element_text(angle = 60, hjust = 1) 
+  )
+```
+
+
+2. Preguntas de Análisis Espacial 
+Objetivo: Entender el factor "dónde".
+
+Pregunta de Localización: ¿Es la contaminación un problema uniforme en toda la ciudad? ¿Qué estaciones de medición (Estacion) registran de forma crónica los peores índices de ICA?
+```{r}
+# 1. Crear una nueva variable "Buena" vs "Mala" para simplificar
+datos_para_grafico <- data %>% 
+  mutate(
+    Calidad = ifelse(ICA_diario >= 4, "Mala (Cat. 4-6)", "Aceptable (Cat. 1-3)")
+  )
+
+# 2. Resumen Numérico (Tabla de Porcentajes)
+summary_proporcional <- datos_para_grafico %>%
+  count(Estacion, Calidad) %>% # Contar cuántos días "Buenos" y "Malos" por estación
+  group_by(Estacion) %>%
+  mutate(
+    total_dias = sum(n),
+    porcentaje = (n / total_dias) * 100
+  ) %>%
+  # Filtramos solo por los "Malos" para el ranking
+  filter(Calidad == "Mala (Cat. 4-6)") %>%
+  arrange(desc(porcentaje))
+
+cat("--- Ranking de Estaciones por Porcentaje de Días Malos (Cat 4-6) ---\n")
+print(summary_proporcional)
+
+
+# 3. Gráfico de Barras Apiladas 100% (Proporcional)
+ggplot(datos_para_grafico, aes(x = Estacion, fill = Calidad)) +
+  # position="fill" crea el gráfico 100% apilado
+  geom_bar(position = "fill") + 
+  coord_flip() + # Giramos para leer los nombres
+  scale_y_continuous(labels = scales::percent) + # Pone el eje X como %
+  scale_fill_manual(values = c("Aceptable (Cat. 1-3)" = "green", "Mala (Cat. 4-6)" = "red")) +
+  labs(
+    title = "Gráfico X: Proporción de Días Malos (Categoría 4-6) por Estación",
+    subtitle = "Comparación del porcentaje de días con calidad del aire 'Mala'",
+    x = "Estación de Medición",
+    y = "Porcentaje del Total de Días",
+    fill = "Calidad del Aire"
+  ) +
+  theme_minimal()
+```
+```{r}
+ica_por_estacion <- data %>% 
+  mutate(
+    Fecha = as.Date(Fecha) # Aseguramos que 'Fecha' sea tipo Date
+  ) %>%
+  mutate(
+    Fecha_Mes = floor_date(Fecha, "year")
+  ) %>%
+  group_by(Fecha_Mes, Estacion) %>% 
+  summarise(
+    ICA_promedio_mensual = mean(ICA_diario) 
+  ) %>%
+  ungroup() 
+  
+
+ggplot(ica_por_estacion, 
+       aes(x = Fecha_Mes, 
+           y = ICA_promedio_mensual, 
+           color = Estacion, 
+           group = Estacion)) +
+  geom_line(linewidth = 0.8) +
+  labs(
+    title = "ICA Promedio Mensual por Estación",
+    x = "Mes",
+    y = "ICA Promedio Mensual (Categoría 1-6)",
+    color = "Estación"
+  ) +
+  theme_minimal()
+```
+
+
+Pregunta de Interacción (Espacio-Tiempo): ¿Tienen todas las estaciones de medición el mismo patrón estacional? (Por ejemplo, ¿sufren todas del mismo contaminante en la misma época, o el centro sufre más de NO2 en invierno mientras la periferia sufre de O3 en verano?)
+```{r}
+library(lubridate)
+
+datos_estacionales <- data %>%
+  mutate(
+    mes = month(Fecha, label = TRUE, abbr = TRUE) # "ene", "feb", "mar"...
+  )
+
+# --- 2: Calcular el promedio mensual para CADA contaminante y CADA estación ---
+perfiles_estacionales <- datos_estacionales %>%
+  group_by(Estacion, mes) %>%
+  summarise(
+    # Usamos los datos imputados
+    NO2_promedio = mean(NO2, na.rm = TRUE),
+    O3_promedio = mean(O3, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+# --- 3: GRÁFICO 1 - Perfil Estacional de NO2 (Tráfico) ---
+ggplot(perfiles_estacionales, 
+       # aes(group=1) es necesario porque 'mes' es un factor
+       aes(x = mes, y = NO2_promedio, group = 1)) +
+  geom_line(color = "darkred", linewidth = 1) +
+  geom_point(color = "darkred") +
+  # --- La Magia: un gráfico para cada estación ---
+  facet_wrap(~ Estacion, ncol = 2) + 
+  labs(
+    title = "Gráfico X: Perfil Estacional de NO2 (Tráfico) por Estación",
+    subtitle = "Media de NO2 (µg/m³) a lo largo del año",
+    x = "Mes del Año",
+    y = "NO2 Promedio (µg/m³)"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# --- 4: GRÁFICO 2 - Perfil Estacional de O3 (Ozono) ---
+ggplot(perfiles_estacionales, 
+       aes(x = mes, y = O3_promedio, group = 1)) +
+  geom_line(color = "blue", linewidth = 1) +
+  geom_point(color = "blue") +
+  # --- La Magia: un gráfico para cada estación ---
+  facet_wrap(~ Estacion, ncol = 2) + 
+  labs(
+    title = "Gráfico Y: Perfil Estacional de O3 (Ozono) por Estación",
+    subtitle = "Media de O3_imp (µg/m³) a lo largo del año",
+    x = "Mes del Año",
+    y = "O3 Promedio (µg/m³)"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+datos_estacionales_anuales <- data %>%
+  mutate(
+    mes = month(Fecha, label = TRUE, abbr = TRUE), # "ene", "feb"...
+    # Creamos 'anio' y lo convertimos a factor para que ggplot
+    # lo trate como una categoría (un color para cada año)
+    anio = as.factor(year(Fecha)) 
+  )
+
+# --- 2: Calcular el promedio mensual PARA CADA AÑO y CADA ESTACIÓN ---
+perfiles_anuales <- datos_estacionales_anuales %>%
+  group_by(Estacion, anio, mes) %>%
+  summarise(
+    # Usamos los datos imputados (_imp)
+    NO2_promedio_mensual = mean(NO2, na.rm = TRUE),
+    O3_promedio_mensual = mean(O3, na.rm = TRUE),
+    .groups = 'drop' 
+  ) %>%
+  ungroup()
+
+# --- 3: GRÁFICO 1 - Perfil Estacional de NO2 (Tráfico) por Año ---
+ggplot(perfiles_anuales, 
+       # aes(group=anio) es clave para conectar los meses del mismo año
+       aes(x = mes, y = NO2_promedio_mensual, color = anio, group = anio)) +
+  geom_line(linewidth = 0.7, alpha = 0.8) + # 'alpha' ayuda si hay muchas líneas
+  # geom_point() (lo quito porque con tantos años puede ensuciar el gráfico)
+  
+  # --- La Magia: un gráfico para cada estación ---
+  facet_wrap(~ Estacion, ncol = 2, scales = "free_y") + # 'scales="free_y"' permite que cada gráfico tenga su propio eje Y
+  labs(
+    title = "Gráfico X: Perfil Estacional de NO2 por Año y Estación",
+    subtitle = "Cada línea representa un año diferente (2010-2025)",
+    x = "Mes del Año",
+    y = "NO2 Promedio Mensual (µg/m³)",
+    color = "Año" # Título de la leyenda
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) # 90 grados para meses
+
+# --- 4: GRÁFICO 2 - Perfil Estacional de O3 (Ozono) por Año ---
+ggplot(perfiles_anuales, 
+       aes(x = mes, y = O3_promedio_mensual, color = anio, group = anio)) +
+  geom_line(linewidth = 0.7, alpha = 0.8) +
+  
+  # --- La Magia: un gráfico para cada estación ---
+  facet_wrap(~ Estacion, ncol = 2, scales = "free_y") + 
+  labs(
+    title = "Gráfico Y: Perfil Estacional de O3 por Año y Estación",
+    subtitle = "Cada línea representa un año diferente (2010-2025)",
+    x = "Mes del Año",
+    y = "O3 Promedio Mensual (µg/m³)",
+    color = "Año"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+```
+
+
+1. Gráfico X (Perfil de NO2)
+Qué buscar (Hipótesis): El NO2 viene del tráfico y las calefacciones. Empeora cuando hace frío y no hay viento (inversión térmica).
+
+Patrón esperado: Verás un gráfico en forma de "U" o "V".
+
+Picos (Alto NO2): En meses de invierno (Nov, Dic, Ene, Feb).
+
+Valles (Bajo NO2): En meses de verano (Jun, Jul, Ago).
+
+Respuesta (Espacio): Compara los mini-gráficos. Las estaciones de tráfico (Pista de Silla) deberían tener picos mucho más altos en invierno que una estación de fondo (Viveros).
+
+2. Gráfico Y (Perfil de O3)
+Qué buscar (Hipótesis): El O3 (Ozono) es un contaminante secundario. No sale de los tubos de escape, se crea en el aire cuando el NOx (del tráfico) reacciona con la luz solar y el calor.
+
+Patrón esperado: Verás un gráfico en forma de "A" o "montaña" (¡Exactamente lo opuesto al NO2!).
+
+Picos (Alto O3): En meses de verano (Jun, Jul, Ago).
+
+Valles (Bajo O3): En meses de invierno (Nov, Dic, Ene).
+
+Respuesta (Espacio): ¡Aquí está la paradoja! Es posible que la estación del "parque" (Viveros, si la analizaras) tuviera picos de O3 en verano tan altos o incluso más que las de tráfico, porque el NOx del tráfico se "come" el ozono, mientras que en el parque solo se acumula. Compara tus estaciones: ¿tienen todas el pico de O3 en verano?
+
