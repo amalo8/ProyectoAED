@@ -182,6 +182,7 @@ ica_por_dia <- datos_ica %>%
 ```
 
 
+
 TRATAMIENTO DE VALORES FALTANTES
 ```{r}
 # --- 3.2: Visualizar Datos Faltantes (Pre-imputación) ---
@@ -225,11 +226,57 @@ dataset_meteo <- ica_por_dia %>%
   
   # Unimos el ozono
   left_join(ozono_data, by = "Fecha")
+```
 
-vis_miss(dataset_meteo, warn_large_data = FALSE)
+
+```{r}
+# 1. VISUALIZAR OUTLIERS
+# Hacemos boxplots de todas las variables nuevas en `dataset_meteo`
+library(tidyr)
+variables_analiticas <- c("ICA_diario_avg", "Temperatura", "Velocidad.del.viento", 
+                            "Precipitacion", "Radiacion.solar", "NOx", "PM10", "O3")
+
+# Filtramos las variables que SÍ existen en nuestros datos
+variables_existentes <- intersect(names(dataset_meteo), variables_analiticas)
+
+dataset_meteo_long <- dataset_meteo %>%
+  pivot_longer(
+    cols = all_of(variables_existentes),
+    names_to = "Variable",
+    values_to = "Valor"
+  )
+
+print(
+  ggplot(dataset_meteo_long, aes(x = Variable, y = Valor)) +
+    geom_boxplot() +
+    facet_wrap(~ Variable, scales = "free_y") +
+    labs(title = "Detección de Outliers en el Dataset Analítico Final") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+)
+
+# 2. TRATAR OUTLIERS (Convertirlos a NA)
+# Basado en lo que veas, ajusta los valores.
+# vemos un valor de precipitacion muy alejado, que no fue en la DANA, ademas de que en valencia ´capital no llovieron los 400 litros, seguramente sea un valor erroneo
+
+dataset_meteo_long %>% 
+  filter(Variable == "Precipitacion", Valor > 500)
+
+
+dataset_meteo <- dataset_meteo %>%
+  mutate(
+    # Ejemplo: Convertir valores imposibles de Precipitacion a NA
+    Precipitacion = if_else(Precipitacion > 400, NA_real_, Precipitacion),
+  )
+
+cat("Outliers (errores de sensor) en 'dataset_meteo' convertidos a NA.\n")
 
 ```
+
+
 ```{r}
+#analisis datos faltantes
+vis_miss(dataset_meteo, warn_large_data = FALSE)
 dataset_meteo_imputado <- na_kalman(dataset_meteo, model = "StructTS")
 vis_miss(dataset_meteo_imputado, warn_large_data = FALSE)
 ```
@@ -249,5 +296,4 @@ write.table(
 
 
 
-```
 

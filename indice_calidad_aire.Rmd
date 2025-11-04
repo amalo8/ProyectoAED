@@ -163,7 +163,36 @@ datos_filtrados <- datos_exploracion %>%
     all_of(contaminantes_ica)
   )
 
-cat(paste("Dataset filtrado a", nrow(datos_filtrados), "registros (3 estaciones, 2015-2025).\n"))
+cat(paste("Dataset filtrado a", nrow(datos_filtrados), "registros (5 estaciones, 2015-2025).\n"))
+
+```
+
+3.2 Detección y Tratamiento de Outliers (NUEVO PASO)
+```{r}
+# 1. VISUALIZAR OUTLIERS
+# Usamos boxplots para ver si hay valores absurdos en los 5 contaminantes
+library(tidyr)
+datos_filtrados_long <- datos_filtrados %>%
+  pivot_longer(
+    cols = all_of(contaminantes_ica),
+    names_to = "Contaminante",
+    values_to = "Valor"
+  )
+
+print(
+  ggplot(datos_filtrados_long, aes(x = Contaminante, y = Valor)) +
+    geom_boxplot() +
+    facet_wrap(~ Contaminante, scales = "free_y") +
+    labs(title = "Detección de Outliers en Contaminantes del ICA") +
+    theme_minimal()
+)
+
+#de los boxplots vemos que los contaminantes presentan algun que otro valor alejado del resto pero no de magnitud imposible para las variables. Podria tratarse de dias de mas o menos contaminacion, por lo que los dejaremos tal y como estan
+```
+
+
+
+```{r}
 
 # --- 3.2: Visualizar Datos Faltantes (Pre-imputación) ---
 # Inspeccionamos los huecos que QUEDAN en nuestro dataset filtrado
