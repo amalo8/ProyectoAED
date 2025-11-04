@@ -136,9 +136,9 @@ print("--- Análisis de Cobertura del ICA por Año (Todas las estaciones) ---")
 print(cobertura_anual)
 ```
 
-Conclusión de la Exploración: Los resultados de la cobertura_estaciones muestran que solo 7 estaciones (Puerto Moll Trans. Ponent, Politecnico, Puerto llit antic Turia, Moli del Sol, avda. Francia, Viveros y Pista Silla) tienen una cobertura superior al 0%. Las demás nunca miden los 5 contaminantes. El análisis por año (no mostrado en detalle aquí, pero presente en tu script original) revela que los datos antes de 2010 son muy escasos.
+Conclusión de la Exploración: Los resultados de la cobertura_estaciones muestran que solo 7 estaciones (Puerto Moll Trans. Ponent, Politecnico, Puerto llit antic Turia, Moli del Sol, avda. Francia, Viveros y Pista Silla) tienen una cobertura superior al 0%. Las demás nunca miden los 5 contaminantes. El análisis por año (no mostrado en detalle aquí, pero presente en tu script original) revela que los datos antes de 2015 son muy escasos.
 
-Decisión: Filtraremos el dataset para quedarnos únicamente con las 7 estaciones válidas y el rango de fechas 2010-2025.
+Decisión: Filtraremos el dataset para quedarnos únicamente con las 7 estaciones válidas y el rango de fechas de la ultima decada 2015-2025. TB POR EL TEMA DE LAS VRIABLES METEROLOGICAS. 
 
 Sin embargo, las estaciones del Puerto son las más modernas y solo incluyen datos desde mediados de 2020 (por eso tambien son las mas llenas pero las que menos filas tienen), por lo que las eliminaremos ya que en el periodo de tiempo tomado, no cubren la mayoria de años.
 
@@ -154,7 +154,7 @@ Ahora que hemos justificado nuestros filtros, los aplicamos para crear el datase
 # --- 3.1: Aplicar Filtros de Fecha y Estación ---
 datos_filtrados <- datos_exploracion %>%
   filter(
-    Año >= 2010 & Año <= 2025,
+    Año >= 2015 & Año <= 2025,
     Estacion %in% estaciones_validas
   ) %>%
   select(
@@ -163,7 +163,7 @@ datos_filtrados <- datos_exploracion %>%
     all_of(contaminantes_ica)
   )
 
-cat(paste("Dataset filtrado a", nrow(datos_filtrados), "registros (3 estaciones, 2010-2025).\n"))
+cat(paste("Dataset filtrado a", nrow(datos_filtrados), "registros (3 estaciones, 2015-2025).\n"))
 
 # --- 3.2: Visualizar Datos Faltantes (Pre-imputación) ---
 # Inspeccionamos los huecos que QUEDAN en nuestro dataset filtrado
@@ -171,7 +171,7 @@ print("Visualización de valores faltantes ANTES de la imputación:")
 vis_miss(datos_filtrados, warn_large_data = FALSE)
 ```
 
-Observamos que, aunque hemos filtrado, todavía existen valores faltantes (bloques negros) dentro de nuestras 3 estaciones. Estos son los huecos que debemos rellenar mediante imputación para tener una serie temporal completa.
+Observamos que, aunque hemos filtrado, todavía existen valores faltantes (bloques negros) dentro de nuestras 5 estaciones. Estos son los huecos que debemos rellenar mediante imputación para tener una serie temporal completa.
 
 Patrones estructurales muy claros:
 
@@ -279,12 +279,12 @@ Finalmente, guardamos el dataset limpio, imputado y con el ICA calculado, listo 
 ```{r}
 write.table(
   datos_finales_con_ica,
-  "data/datos_ica_final_imputado_2010-2025.csv",
+  "data/datos_ica_final_imputado_2015-2025.csv",
   row.names = FALSE,
   sep = ";",
   quote = FALSE
 )
 
-cat("Archivo 'datos_ica_final_imputado_2010-2025.csv' guardado exitosamente.\n")
+cat("Archivo 'datos_ica_final_imputado_2015-2025.csv' guardado exitosamente.\n")
 ```
 

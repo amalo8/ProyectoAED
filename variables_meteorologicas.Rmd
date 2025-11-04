@@ -1,0 +1,253 @@
+---
+title: "var_meteorologicas"
+output: html_document
+date: "2025-11-04"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list=ls())
+```
+
+
+
+# 1. Carga, Configuración y Funciones
+Primero, cargamos todas las librerías que usaremos en el análisis y los datos crudos.
+
+
+```{r}
+# --- 1.1: Cargar Librerías ---
+library(dplyr)
+library(lubridate)
+library(tidyr)
+
+# --- 1.2: Cargar Datos Crudos ---
+datos_crudos <- read.csv("data/datos_meteorologicos_limpios.csv", sep = ";", header = TRUE)
+
+#me quedo con 2015-2025
+datos_crudos <- datos_crudos %>%
+  filter(between(year(dmy(Fecha)), 2015, 2025))
+
+#pasar columna fecha a formato fecha
+datos_crudos <- datos_crudos %>%
+  mutate(
+    Fecha=dmy(Fecha)
+  )
+
+# --- 1.2: Cargar Datos ICA ---
+datos_ica<-read.csv("data/datos_ica_final_imputado_2015-2025.csv", sep = ";", header = TRUE)
+
+
+#pasar columna fecha a formato fecha
+datos_ica <- datos_ica %>%
+  mutate(
+    Fecha=as.Date(Fecha)
+  )
+
+```
+
+
+# Exploración de Cobertura (Justificación de Filtros)
+Antes de filtrar nada, exploramos los datos crudos para entender sus limitaciones.
+El objetivo es crear un dataset de análisis (con todas las variables meteorológicas, ruido, etc. del bruto) pero que solo contenga las filas (días/estaciones) para las que logramos calcular un ICA_diario.
+
+Esto justifica por qué el resto de tu análisis (el de las preguntas 4 y 5) se centrará solo en este subconjunto de datos, que ya sabemos que tiene cobertura para el ICA.
+
+
+Tu ICA_diario (1-6) está calculado para las 5 estaciones, pero la Temperatura o el Ruido se miden en otras estaciones posiblemente.
+
+Tu idea de "coger las fechas únicas" es el camino correcto, pero si solo filtras el bruto por esas fechas, seguirás teniendo el mismo problema: la Temperatura y el ICA estarán en filas diferentes (diferente Estacion) para el mismo día.
+
+El Problema: Datos en Formato "Largo"
+No puedes correlacionar cor(Temperatura, ICA) porque están en filas separadas.
+
+La Solución: Crear un Dataset "Ancho" (Agregado por Día)
+Necesitamos crear un nuevo dataset donde cada fila sea un solo día. 
+
+
+QUE ESTACIONES CUBREN QUE VARIABLES?
+
+Vamos a hacer exactamente eso: un análisis de cobertura. Crearemos una tabla que nos muestre, para cada estación, qué porcentaje de datos tiene para cada variable.
+
+Así podrás decidir con fundamento: "Para la Temperatura, usaré la Estación 'Viveros' porque tiene una cobertura del 98%, mientras que las demás tienen 0%".
+```{r}
+library(dplyr)
+library(tidyr) # Para pivot_longer
+library(ggplot2)
+
+# --- 0. Calcular el N total de DÍAS ÚNICOS del periodo ---
+# Este será nuestro denominador universal
+total_dias_unicos_periodo <- n_distinct(datos_crudos$Fecha, na.rm = TRUE)
+
+cat(paste("Periodo de análisis: (", 
+          min(datos_crudos$Fecha, na.rm = TRUE), "a", 
+          max(datos_crudos$Fecha, na.rm = TRUE), ")\n"))
+cat(paste("Número total de días únicos en el periodo:", 
+          total_dias_unicos_periodo, "\n\n"))
+
+
+# --- 1. Definir las variables que queremos analizar ---
+variables_explicativas <- c(
+  # Contaminantes Tráfico
+  "NOx", "C6H6", "Ruido","PM10",
+  # Contaminante Fotoquímico
+  "O3",
+  # Meteorología
+  "Temperatura", "Velocidad.del.viento", "Precipitacion", "Radiacion.solar"
+)
+
+# --- 2. Calcular la Matriz de Cobertura (Tabla) ---
+# Contamos el porcentaje de valores NO NULOS para cada variable/estación
+cobertura_por_estacion <- datos_crudos %>%
+  group_by(Estacion) %>%
+  summarise(
+    # Aplicamos esta función a todas las columnas de nuestra lista
+    across(
+      all_of(variables_explicativas), 
+      
+      # --- MODIFICACIÓN CLAVE ---
+      # La función: (número de no-NAs / N Días TOTALES DEL PERIODO) * 100
+      ~ (sum(!is.na(.)) / total_dias_unicos_periodo) * 100,
+      # --- FIN DE LA MODIFICACIÓN ---
+      
+      .names = "{.col}_pct"
+    ),
+    # Cambiamos el nombre de n() para que sea más claro
+    total_filas_en_estacion = n()
+  ) %>%
+  ungroup() %>%
+  arrange(desc(total_filas_en_estacion))
+
+cat("--- MATRIZ DE COBERTURA (% de datos NO NULOS respecto al total de días) ---\n")
+print(cobertura_por_estacion)
+
+
+# --- 3. Visualización (Heatmap de Cobertura) ---
+# (Esta parte del código no cambia, solo visualiza la nueva tabla)
+
+cobertura_largo <- cobertura_por_estacion %>%
+  select(-total_filas_en_estacion) %>% 
+  pivot_longer(
+    cols = -Estacion, # Mover todas las columnas EXCEPTO Estacion
+    names_to = "Variable",
+    values_to = "Porcentaje"
+  )
+
+ggplot(cobertura_largo, aes(x = Variable, y = Estacion, fill = Porcentaje)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = paste0(round(Porcentaje, 0), "%")), size = 3) +
+  scale_fill_gradient(low = "red", high = "green", limits = c(0, 100)) + 
+  labs(
+    title = "Gráfico X: Mapa de Cobertura de Variables por Estación",
+    subtitle = "Porcentaje de cobertura respecto al TOTAL de días del periodo (2015-2025)",
+    x = "Variable Medida",
+    y = "Estación de Medición"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+
+Para Meteorología (Temp, Viento, Rad. Solar, Precip., O3):
+
+Ganador claro: Conselleria Meteo. Tiene una cobertura excelente y uniforme de ~81% para todas las variables meteorológicas. Es la única opción fiable para un dataset meteorológico completo.
+
+Para Tráfico ( NOx, PM10, O3): Pista Silla es la única opción viable (80% de cobertura). NO COGEMOS VARIABLE C6H6 PORQUE AL PRINCIPIO DE LOS AÑOS (2015-2018 APROX NO HAY MEDIDAS), Y TAMPOCO EL RUIDO PQ SOLO SE REGISTRO HASTA 2022, LUEGO SE ROMPIO EL SENSOR O ALGO? VER PLOTS.RMD
+
+```{r}
+# --- 1. Definir las tablas de consulta (Features) ---
+
+# 1a. Datos de Meteorología (Fuente: Conselleria Meteo)
+meteo_data <- datos_crudos %>%
+  filter(Estacion == "Conselleria Meteo") %>%
+  select(Fecha, Temperatura, Velocidad.del.viento, Precipitacion, Radiacion.solar)
+
+# 1b. Datos de Trafico (Fuente: Pista Silla)
+trafico_data <- datos_crudos %>%
+  filter(Estacion == "Pista Silla") %>%
+  select(Fecha, NOx, PM10)
+
+# 1C. Datos de Ozono (Fuente: Politecnico)
+ozono_data <- datos_crudos %>%
+  filter(Estacion == "Politecnico") %>%
+  select(Fecha, O3)
+
+# --- 2. Definir la tabla de ICA ---
+# Asumo que ya tienes tu ICA_diario calculado en un dataframe
+# Añadirlo calculando la media diaria de todas las estaciones:
+ica_por_dia <- datos_ica %>%
+  group_by(Fecha) %>%
+  summarise(ICA_diario_avg = mean(ICA_diario, na.rm = TRUE))
+```
+
+
+TRATAMIENTO DE VALORES FALTANTES
+```{r}
+# --- 3.2: Visualizar Datos Faltantes (Pre-imputación) ---
+print("Visualización de valores faltantes ANTES de la imputación:")
+library(visdat) 
+vis_miss(meteo_data, warn_large_data = FALSE)
+
+vis_miss(trafico_data, warn_large_data = FALSE)
+
+vis_miss(ozono_data, warn_large_data = FALSE)
+```
+
+En ambos gráficos, se observan bandas y bloques horizontales muy claros. Por ejemplo, en el segundo gráfico, hay un bloque grueso donde faltan NOx, PM10 y O3 exactamente al mismo tiempo. En el primer gráfico, hay un bloque donde falta solo Precipitacion y otro donde falta Temperatura.
+
+Este patrón de bandas significa que la falta de datos es estructural. Es el comportamiento clásico de los datos de sensores:
+
+Un sensor se apaga por mantenimiento.
+
+Una estación de medición pierde la conexión durante días.
+
+Un sensor específico falla y deja de reportar.
+
+Esto se clasifica como MAR (Missing At Random), que significa "Faltante al Azar". Suena contradictorio, pero en estadística significa que la falta del dato se puede explicar por otras variables que sí tienes.
+
+En tu caso, la falta de Temperatura se explica por la Fecha (y probablemente por la Estacion, que no vemos en el gráfico). Como podemos "predecir" dónde están los huecos usando otras columnas, es MAR.
+
+
+IMPUTACION DE VALORES
+
+
+```{r}
+# --- 3. Unir todo para crear el Dataset de Análisis ---
+# Empezamos con los días para los que tenemos ICA
+dataset_meteo <- ica_por_dia %>%
+  
+  # Unimos las variables meteorológicas
+  left_join(meteo_data, by = "Fecha") %>%
+  
+  # Unimos el trafico
+  left_join(trafico_data, by = "Fecha")%>%
+  
+  # Unimos el ozono
+  left_join(ozono_data, by = "Fecha")
+
+vis_miss(dataset_meteo, warn_large_data = FALSE)
+
+```
+```{r}
+dataset_meteo_imputado <- na_kalman(dataset_meteo, model = "StructTS")
+vis_miss(dataset_meteo_imputado, warn_large_data = FALSE)
+```
+
+
+
+```{r}
+write.table(
+  dataset_meteo_imputado,
+  "data/datos_meteo_imputado_2015-2025.csv",
+  row.names = FALSE,
+  sep = ";",
+  quote = FALSE
+)
+
+```
+
+
+
+```
+
