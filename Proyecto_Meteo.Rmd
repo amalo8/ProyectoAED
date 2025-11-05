@@ -1,0 +1,591 @@
+---
+title: "meteorologia"
+author: "An"
+date: "2025-11-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+df_m1 <- read.csv("data/datos_meteorologicos_limpios.csv", sep = ";", header = TRUE)
+```
+
+```{r}
+# --- 1: Cargar librerías necesarias ---
+library(dplyr)
+library(tidyverse)
+library(skimr)
+library(naniar)
+library(readr)
+library(lubridate)
+library(janitor)  
+library(zoo) 
+library(tidyr)
+library(ggplot2)
+library(ggcorrplot)
+library(stringr)
+```
+
+```{r}
+# --- 2: Organiacion de datos ---
+
+# Seleccion de variables necesarias
+df_m <- df_m1 %>%
+  select(-c(24,18,12:16,8,6,3))
+
+# Normalizacion de fechas
+df_m <- df_m %>%
+  mutate(Fecha = as.Date(parse_date_time(Fecha, orders = c("dmy"))))
+
+# Renombrado de variables
+df_m <- df_m %>%
+  rename(
+    Viento = 'Velocidad.del.viento',
+    Humidad = 'Humidad.relativa',
+    Radiacion = 'Radiacion.solar',
+    )
+# Ordenacion y reubicacion de estacion y fecha
+df_estacion<- df_m %>%
+  arrange(Estacion, Fecha)
+df_estacion <- df_estacion %>% 
+  relocate(Estacion, Fecha)
+str(df_estacion)
+
+# Filtrado temporal (2015–2025)
+df_m_2015_2025 <- df_m %>%
+  filter(year(Fecha) >= 2015 & year(Fecha) <= 2025)
+
+# Calcular el porcentaje de NA por variable
+na_resumen <- df_m_2015_2025 %>%
+  summarise(across(everything(), ~mean(is.na(.x))*100)) %>%
+  pivot_longer(everything(), names_to = "Variable", values_to = "Porcentaje_NA") %>%
+  arrange(desc(Porcentaje_NA))
+
+head(na_resumen, 10)
+
+# Eliminacion
+df_m_2015_2025 <-df_m_2015_2025 %>%
+  select(-c(CO))
+```
+
+
+```{r}
+# --- 3: Imputacion de datos ---
+
+# Imputacion de los variables contaminantes 
+safe_kalman <- function(x, min_points = 3) {
+  if (sum(!is.na(x)) >= min_points) imputeTS::na_kalman(x) else x
+}
+df_imputados <- df_m_2015_2025  %>%
+  arrange(Estacion, Fecha) %>%
+  group_by(Estacion) %>%
+  mutate(
+    PM10  = safe_kalman(PM10),
+    PM2.5 = safe_kalman(PM2.5),
+    NO2   = safe_kalman(NO2),
+    O3    = safe_kalman(O3),
+    SO2   = safe_kalman(SO2),
+  ) %>%
+  ungroup()
+
+# Imputacion de los variables meteorogicos 
+meteo_cont <- c("Temperatura", "Humidad", "Presion", "Viento")
+meteo_rad  <- "Radiacion"
+meteo_prec <- "Precipitacion" 
+
+cap_to_span <- function(x) {
+  idx <- which(!is.na(x))
+  if (length(idx) == 0) return(x)
+  i <- min(idx); j <- max(idx)
+  x[seq_len(i-1)] <- NA
+  if (j < length(x)) x[(j+1):length(x)] <- NA
+  x
+}
+
+safe_approx <- function(x, maxgap = 14) {
+  if (sum(!is.na(x)) >= 2) {
+    x <- cap_to_span(x)
+    zoo::na.approx(x, maxgap = maxgap, na.rm = FALSE)
+  } else x
+}
+
+safe_ma <- function(x, k = 3) {
+  if (sum(!is.na(x)) >= 2) {
+    x <- cap_to_span(x)
+    imputeTS::na_ma(x, k = k)
+  } else x
+}
+
+safe_precip <- function(x) {
+  if (any(!is.na(x))) tidyr::replace_na(x, 0) else x
+}
+  
+datos_meteo_imput <- df_imputados %>%
+  arrange(Estacion, Fecha) %>%
+  group_by(Estacion) %>%
+  mutate(
+    across(all_of(meteo_cont), ~ safe_approx(.x, maxgap = 14), .names = "{.col}"),
+    across(all_of(meteo_rad),  ~ safe_ma(.x, k = 3),           .names = "{.col}"),
+    across(all_of(meteo_prec), ~ safe_precip(.x),              .names = "{.col}")
+  ) %>%
+  ungroup()  
+
+# Calcular el porcentaje de NA por variable despues de imputacion
+na_resumen_imp <- datos_meteo_imput %>%
+  summarise(across(everything(), ~mean(is.na(.x))*100)) %>%
+  pivot_longer(everything(), names_to = "Variable", values_to = "Porcentaje_NA") %>%
+  arrange(desc(Porcentaje_NA))
+
+head(na_resumen_imp, 10)
+```
+
+
+```{r}
+# --- 4: Seleccion de las estaciones y tiempo---
+# Calcular el porcentaje de NA por estación, por variable y por ano
+na_por_ano_estacion_variable <- datos_meteo_imput %>%
+  mutate(Ano = year(Fecha)) %>%                   
+  group_by(Ano, Estacion) %>%
+  summarise(across(where(is.numeric), ~ mean(is.na(.x)) * 100)) %>%
+  pivot_longer(-c(Ano, Estacion), 
+               names_to = "Variable", 
+               values_to = "Porcentaje_NA") %>%
+  ungroup()
+
+head(na_por_ano_estacion_variable)
+
+# Grafico del porcentaje de NA por estación, por variable y por ano
+na_promedio_ano_estacion <- na_por_ano_estacion_variable %>%
+  group_by(Ano, Estacion) %>%
+  summarise(Porcentaje_NA_medio = mean(Porcentaje_NA, na.rm = TRUE)) %>%
+  ungroup()
+
+ggplot(na_promedio_ano_estacion, 
+       aes(x = factor(Ano), y = Estacion, fill = Porcentaje_NA_medio)) +
+  geom_tile(color = "white") +
+  scale_fill_viridis_c(option = "C", name = "% NA promedio") +
+  theme_minimal(base_size = 11) +
+  labs(title = "Porcentaje medio de NA por año y estación",
+       x = "Año", y = "Estación") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+# --- 4: Seleccion de las estaciones y tiempo---
+
+# Lista de estaciones a eliminar 
+estaciones_excluir <- c("Nazaret Meteo", "Conselleria Meteo","Puerto Valencia",
+                        "Valencia Centro", "Bulevard Sud")
+
+# Filtrar el dataset principal
+df_filtrado <- datos_meteo_imput %>%
+  filter(!Estacion %in% estaciones_excluir)
+
+# Verificar el resultado
+unique(df_filtrado$Estacion)
+
+# Estaciones principales (para análisis 2019–2020) 
+estaciones_main <- c("Viveros", "Politecnico", "Avda. Francia", 
+                     "Moli del Sol", "Pista Silla", "Puerto Valencia")
+
+df_main <- df_filtrado %>%
+  filter(Estacion %in% estaciones_main)
+
+# Nuevas estaciones (a partir de 2021)
+estaciones_nuevas <- c("Puerto llit antic Turia", "Puerto Moll Trans. Ponent")
+
+df_nuevas <- df_filtrado %>%
+  filter(Estacion %in% estaciones_nuevas)
+
+
+```
+
+```{r}
+# --- 5: Tendencia global 2015-2025---
+
+df_trend_long <- df_main %>%
+  group_by(Fecha) %>%
+  summarise(across(
+    c(PM2.5, PM10, NO2, O3, SO2, Viento, Temperatura, Humidad, Presion, Radiacion, Precipitacion),
+    ~ mean(.x, na.rm = TRUE)
+  ))
+
+glimpse(df_trend_long)
+
+df_long_all <- df_trend_long %>%
+  pivot_longer(-Fecha, names_to = "Variable", values_to = "Valor")
+
+# ---- Dibujar con facet_wrap ----
+ggplot(df_long_all, aes(x = Fecha, y = Valor, color = Variable)) +
+  geom_line(show.legend = FALSE) +
+  facet_wrap(~ Variable, scales = "free_y", ncol = 3) +
+  theme_minimal(base_size = 11) +
+  labs(title = "Tendencias temporales (2015–2025)",
+       x = "Fecha", y = "Valor medio diario") +
+  theme(strip.text = element_text(face = "bold"))
+
+
+```
+
+```{r}
+# --- 6: Periodo principal para análisis meteorología y contaminantes 2019-2020---
+# Configuración y subconjuntos de datos
+
+df_focus <- df_main %>%
+  filter(year(Fecha) %in% 2019:2020)
+
+# Selección de variables para análisis causal
+vars_pollu <- c("PM10","PM2.5","NO2","O3","SO2")
+vars_meteo <- c("Viento","Precipitacion","Temperatura","Radiacion","Humidad") # Eliminar Presion 
+
+# Correlaciones globales
+# Pearson
+corr_pearson <- df_focus %>%
+  select(all_of(vars_meteo), all_of(vars_pollu)) %>%
+  cor(use = "pairwise.complete.obs", method = "pearson")
+
+Pearson_todos <- ggcorrplot(corr_pearson, lab = TRUE, lab_size = 2.5,
+           title = "Correlaciones Pearson: Meteorología vs Contaminantes (2019–2020)")
+print(Pearson_todos)
+
+# Spearman
+corr_spearman <- df_focus %>%
+  select(all_of(vars_meteo), all_of(vars_pollu)) %>%
+  cor(use = "pairwise.complete.obs", method = "spearman")
+
+Spearman_todos <- ggcorrplot(corr_spearman, lab = TRUE, lab_size = 2.5,
+           title = "Correlaciones Spearman: Meteorología vs Contaminantes (2019–2020)")
+print(Spearman_todos)
+```
+```{r}
+############################ Metodo alterntativa
+# Correlaciones globales 2
+# Pearson
+M_pearson <- df_focus %>%
+  dplyr::select(all_of(c(vars_meteo, vars_pollu))) %>%
+  cor(use = "pairwise.complete.obs", method = "pearson") %>%
+  round(2)
+
+M_sub_p <- M_pearson[vars_meteo, vars_pollu, drop = FALSE]
+
+heat_df_p <- as.data.frame(M_sub_p) %>%
+  tibble::rownames_to_column("Meteo") %>%
+  pivot_longer(-Meteo, names_to = "Contaminante", values_to = "Corr")
+
+pearson_todos <- ggplot(heat_df_p, aes(Contaminante, Meteo, fill = Corr, label = Corr)) +
+  geom_tile(color = "white") +
+  geom_text(size = 3) +
+  scale_fill_gradient2(low="#4575b4", mid="white", high="#d73027", limits=c(-1,1)) +
+  coord_fixed() +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+    panel.grid  = element_blank()
+  ) +
+  labs(title = "Correlaciones (Pearson) — Meteorología × Contaminantes (2019–2020)",
+       x = "Contaminante", y = "Variable meteorológica", fill = "r")
+print(pearson_todos)
+
+# Spearman 
+M <- df_focus |> dplyr::select(all_of(c(vars_meteo, vars_pollu))) |>
+  cor(use = "pairwise.complete.obs", method = "spearman") |>
+  round(2)
+
+M_sub <- M[vars_meteo, vars_pollu, drop = FALSE] 
+
+heat_df <- as.data.frame(M_sub) |>
+  tibble::rownames_to_column("Meteo") |>
+  pivot_longer(-Meteo, names_to = "Contaminante", values_to = "Corr")
+
+spearman_todos <-ggplot(heat_df, aes(Contaminante, Meteo, fill = Corr, label = Corr)) +
+  geom_tile(color = "white") +
+  geom_text(size = 3) +
+  scale_fill_gradient2(low="#4575b4", mid="white", high="#d73027", limits=c(-1,1)) +
+  coord_fixed() +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+    panel.grid  = element_blank()
+  ) +
+  labs(title = "Correlaciones (Spearman) — Meteorología × Contaminantes (2019–2020)",
+       x = "Contaminante", y = "Variable meteorológica", fill = "ρ")
+print(spearman_todos )
+
+
+
+
+```
+```{r}
+#
+corr_matrix <- df_focus %>%
+  select(all_of(c(vars_meteo, vars_pollu))) %>%
+  cor(use = "pairwise.complete.obs", method = "spearman") %>%
+  round(2)
+
+# NO2
+corr_no2 <- corr_matrix[vars_meteo, "NO2", drop = FALSE] %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("Variable_meteo") %>%
+  rename(Corr_NO2 = NO2) %>%
+  arrange(desc(abs(Corr_NO2)))
+print(corr_no2)
+
+# O3
+corr_o3 <- corr_matrix[vars_meteo, "O3", drop = FALSE] %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("Variable_meteo") %>%
+  rename(Corr_O3 = O3) %>%
+  arrange(desc(abs(Corr_O3)))
+print(corr_o3)
+
+# PM10
+corr_pm10 <- corr_matrix[vars_meteo, "PM10", drop = FALSE] %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("Variable_meteo") %>%
+  rename(Corr_PM10 = PM10) %>%
+  arrange(desc(abs(Corr_PM10)))
+print(corr_pm10)
+
+# PM2.5
+corr_pm2.5 <- corr_matrix[vars_meteo, "PM2.5", drop = FALSE] %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("Variable_meteo") %>%
+  rename(Corr_PM2.5 = PM2.5) %>%
+  arrange(desc(abs(Corr_PM2.5)))
+print(corr_pm2.5)
+
+# SO2
+corr_so2 <- corr_matrix[vars_meteo, "SO2", drop = FALSE] %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("Variable_meteo") %>%
+  rename(Corr_SO2 = SO2) %>%
+  arrange(desc(abs(Corr_SO2)))
+print(corr_so2)
+```
+
+```{r}
+# --- 7: Grafico de relacion de los variables meteorología y contaminantes 2019-2020---
+# ----------------- tamano -----------------
+scale_map <- list(
+  Temperatura = 3,
+  Viento = 10,
+  Radiacion = 0.2,
+  Precipitacion = 5,
+  Humidad = 1
+)
+
+# Funcion de grafico
+plot_monthly_station <- function(data, estacion, pollutant, meteo,
+                                 save_png = FALSE,
+                                 out_dir = "figs_mensuales",
+                                 width = 9, height = 4, dpi = 300,
+                                 title_prefix = "Tendencia mensual") {
+
+  sc <- ifelse(meteo %in% names(scale_map), scale_map[[meteo]], 1)
+
+  dfm <- data %>%
+    filter(Estacion == estacion) %>%
+    mutate(Mes = floor_date(Fecha, "month")) %>%
+    group_by(Mes) %>%
+    summarise(
+      pol = mean(.data[[pollutant]], na.rm = TRUE),
+      met = mean(.data[[meteo]],     na.rm = TRUE),
+      .groups = "drop"
+    )
+
+  if (nrow(dfm) == 0) return(invisible(NULL))
+
+  yr <- range(year(dfm$Mes), na.rm = TRUE)
+  rango <- if (all(is.finite(yr))) sprintf("(%d–%d)", yr[1], yr[2]) else ""
+
+  p <- ggplot(dfm, aes(Mes)) +
+    geom_line(aes(y = pol, color = paste0(pollutant, " (µg/m³)")), size = 1.1) +
+    geom_line(aes(y = met * sc, color = paste0(meteo, " ×", sc)),
+              linetype = "dashed", size = 1.1) +
+    scale_color_manual(values = c("#e6550d", "#3182bd")) +
+    theme_minimal(base_size = 14) +
+    labs(
+      title = sprintf("%s de %s y %s — %s %s",
+                      title_prefix, pollutant, meteo, estacion, rango),
+      x = "Mes", y = pollutant, color = "Variable"
+    ) +
+    theme(legend.position = "bottom")
+
+  print(p)
+
+# guardar grafico
+  if (isTRUE(save_png)) {
+    dir_station <- file.path(out_dir, str_replace_all(estacion, "\\s+", "_"))
+    if (!dir.exists(dir_station)) dir.create(dir_station, recursive = TRUE)
+    fname <- file.path(dir_station,
+                       sprintf("%s_%s.png", pollutant, meteo))
+    ggsave(fname, p, width = width, height = height, dpi = dpi)
+  }
+
+  invisible(p)
+}
+
+# Variables
+pairs <- tibble::tribble(
+  ~pollutant, ~meteo,
+  "NO2",   "Temperatura",
+  "NO2",   "Viento",
+  "NO2",   "Radiacion",
+  "O3",    "Temperatura",
+  "O3",    "Radiacion",
+  "PM10",  "Viento",
+  "PM2.5", "Viento"
+)
+
+# Estaciones
+stations <- unique(df_focus$Estacion)
+
+# Grafico separada
+for (st in stations) {
+  for (i in seq_len(nrow(pairs))) {
+    plot_monthly_station(
+      data = df_focus,
+      estacion = st,
+      pollutant = pairs$pollutant[i],
+      meteo = pairs$meteo[i],
+      save_png = FALSE  
+    )
+  }
+}
+
+```
+
+
+```{r}
+# --- 7: Visualizaciones clave 2019-2020 ---
+
+# Efecto de limpieza: Viento/Precipitación → PM2.5/PM10/NO2
+
+
+# Viento vs PM2.5
+p_viento_pm25 <- ggplot(df_focus, aes(x = Viento, y = PM2.5)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_minimal(base_size = 11) +
+  labs(title = "Relación entre viento y PM2.5 (2019–2020)",
+       x = "Velocidad del viento (m/s)", y = "PM2.5 (µg/m³)")
+print(p_viento_pm25)
+
+# Precipitación vs PM2.5
+p_lluvia_pm25 <- ggplot(df_focus, aes(x = Precipitacion, y = PM2.5)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_minimal(base_size = 11) +
+  labs(title = "Relación entre precipitación y PM2.5 (2019–2020)",
+       x = "Precipitación (mm)", y = "PM2.5 (µg/m³)")
+print(p_lluvia_pm25)
+
+# Viento vs PM10
+p_viento_pm10 <- ggplot(df_focus, aes(x = Viento, y = PM10)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_minimal(base_size = 11) +
+  labs(title = "Relación entre viento y PM10 (2019–2020)",
+       x = "Velocidad del viento (m/s)", y = "PM10 (µg/m³)")
+print(p_viento_pm10)
+
+# Precipitación vs PM10
+p_lluvia_pm10 <- ggplot(df_focus, aes(x = Precipitacion, y = PM10)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_minimal(base_size = 11) +
+  labs(title = "Relación entre precipitación y PM10 (2019–2020)",
+       x = "Precipitación (mm)", y = "PM10 (µg/m³)")
+print(p_lluvia_pm10)
+
+# Viento vs NO2
+p_viento_no2 <- ggplot(df_focus, aes(x = Viento, y = NO2)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_minimal(base_size = 11) +
+  labs(title = "Relación entre viento y NO2 (2019–2020)",
+       x = "Velocidad del viento (m/s)", y = "NO2 (µg/m³)")
+print(p_viento_no2)
+
+# A2) Precipitación vs NO2
+p_lluvia_no2 <- ggplot(df_focus, aes(x = Precipitacion, y = NO2)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_minimal(base_size = 11) +
+  labs(title = "Relación entre precipitación y NO2 (2019–2020)",
+       x = "Precipitación (mm)", y = "NO2 (µg/m³)")
+print(p_lluvia_no2)
+
+
+# Formación de O3: Temperatura/Radiación → O3
+# Temperatura vs O3
+p_temp_o3 <- ggplot(df_focus, aes(x = Temperatura, y = O3)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_minimal(base_size = 11) +
+  labs(title = "Relación entre temperatura y O3 (2019–2020)",
+       x = "Temperatura (°C)", y = "O3 (µg/m³)")
+print(p_temp_o3)
+
+# Radiación vs O3
+p_rad_o3 <- ggplot(df_focus, aes(x = Radiacion, y = O3)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_minimal(base_size = 11) +
+  labs(title = "Relación entre radiación solar y O3 (2019–2020)",
+       x = "Radiación (W/m²)", y = "O3 (µg/m³)")
+print(p_rad_o3)
+```
+
+```{r}
+##################################Alternativa
+# Afectado de lluvia
+df_focus <- df_focus %>%
+  mutate(lluvia = as.integer(Precipitacion > 0))
+
+p_lluvia_bin_pm25 <- ggplot(df_focus, aes(x = factor(lluvia), y = PM2.5)) +
+  geom_boxplot() +
+  theme_minimal(base_size = 11) +
+  labs(title = "PM2.5 según días con lluvia (2019–2020)",
+       x = "Lluvia (0=No, 1=Sí)", y = "PM2.5 (µg/m³)")
+print(p_lluvia_bin_pm25)
+
+p_lluvia_bin_pm10 <- ggplot(df_focus, aes(x = factor(lluvia), y = PM10)) +
+  geom_boxplot() +
+  theme_minimal(base_size = 11) +
+  labs(title = "PM10 según días con lluvia (2019–2020)",
+       x = "Lluvia (0=No, 1=Sí)", y = "PM10 (µg/m³)")
+print(p_lluvia_bin_pm10)
+
+p_lluvia_bin_no2 <- ggplot(df_focus, aes(x = factor(lluvia), y = NO2)) +
+  geom_boxplot() +
+  theme_minimal(base_size = 11) +
+  labs(title = "NO2 según días con lluvia (2019–2020)",
+       x = "Lluvia (0=No, 1=Sí)", y = "NO2 (µg/m³)")
+print(p_lluvia_bin_pm10)
+```
+
+
