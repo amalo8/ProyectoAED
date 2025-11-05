@@ -1,0 +1,282 @@
+---
+title: "Huella de Tráfico"
+output: html_document
+date: "2025-11-04"
+---
+
+#######################################################################################
+5. Preguntas Explicativas (Fuentes de Contaminación)
+Objetivo: Identificar las posibles fuentes humanas (tráfico, industria).
+
+Pregunta (Huella del Tráfico): ¿Podemos identificar la "huella" del tráfico? ¿Existe una correlación positiva entre los contaminantes primarios asociados al tráfico (como NOx y Benceno C6H6) y la variable Ruido?
+#######################################################################################
+
+
+En la huella de tráfico sobre la calidad del aire intervienen diversos factores. 
+
+¿Hay una correlación positiva entre Ruido y NO₂ o PM₂.₅?
+
+Hipótesis: a mayor ruido (más tráfico), mayor concentración de contaminantes primarios.
+
+¿Hay diferencias entre días laborables y fines de semana?
+
+Hipótesis: los días laborales presentan más contaminación asociada al tráfico.
+
+¿A qué horas del día se observan picos de NO₂ o Ruido?
+
+Hipótesis: picos en las horas punta (8–9h y 18–20h).
+
+¿O₃ está negativamente correlacionado con NO₂?
+
+Por reacciones químicas (el NO destruye O₃).
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list = ls())
+```
+
+```{r}
+data<-read.csv("data/datos_meteorologicos_combinados.csv",header=TRUE)
+```
+
+```{r}
+eliminar <- c(Dia.de.la.semana, Dia.del.mes,)
+```
+
+Contaminación por tráfico
+Producidos por la combustión de motores, desgaste de frenos y neumáticos, y re-suspensión de polvo.
+
+Gases -> NO, NO2, NOx, CO, C6H6, C7H8, C8H10
+NOx y CO son los marcadores más claros de tráfico. Los COVs (benceno, tolueno, xileno) también.
+
+
+Partículas -> PM1, PM2.5, PM10
+Emitidas y levantadas por el tráfico.
+
+Indicadores indirectos -> Ruido
+
+
+```{r}
+
+library(ggcorrplot)
+library(ggplot2)
+
+
+trafico_vars <- c("Fecha", "NO", "NO2", "NOx", "CO", "C6H6", "C7H8", "C8H10", "PM1", "PM2.5", "PM10", "Ruido")
+trafico_df <- data[, trafico_vars]
+
+# Correlación entre ruido y contaminantes
+
+cor_matrix_pearson <- cor(trafico_df[, -1], use = "pairwise.complete.obs", method="pearson")
+cor_matrix_spearman <- cor(trafico_df[, -1], use = "pairwise.complete.obs", method="spearman")
+
+print("Pearson")
+print(cor_matrix_pearson)
+print("Spearman")
+print(cor_matrix_spearman)
+
+ggcorrplot(cor_matrix_pearson, lab = TRUE, title = "Correlaciones entre variables de tráfico (Pearson)")
+ggcorrplot(cor_matrix_spearman, lab = TRUE, title = "Correlaciones entre variables de tráfico (Spearman)")
+
+
+```
+Los óxidos de nitrógeno (NO, NO₂ y NOx) presentan altas correlaciones entre sí tanto en Pearson como en Spearman, con valores superiores a 0.9.
+Esto refleja su origen común: la combustión en motores de vehículos.
+De hecho, el NO y el NO₂ forman parte del mismo ciclo químico atmosférico (NO se oxida a NO₂ en presencia de oxígeno y ozono).
+
+El CO (monóxido de carbono) también muestra correlaciones positivas moderadas con los óxidos de nitrógeno (entre 0.48 y 0.62), lo que sugiere que ambos proceden de procesos de combustión incompleta de carburantes fósiles.
+Esta relación refuerza la idea de que el tráfico es una de las fuentes dominantes de estos contaminantes en entornos urbanos.
+
+En cuanto a los compuestos orgánicos volátiles (COVs) —benceno (C₆H₆), tolueno (C₇H₈) y xileno (C₈H₁₀)—, sus correlaciones entre sí son muy altas (0.6–0.8), tanto en Pearson como en Spearman.
+Estos compuestos suelen originarse por evaporación de combustibles, disolventes y procesos industriales relacionados con el tráfico o actividades químicas.
+Su fuerte interdependencia indica una fuente común o coincidente (vehículos, estaciones de servicio, zonas industriales cercanas, etc.).
+
+El ruido presenta correlaciones positivas pero debilitadas con la mayoría de los contaminantes del tráfico:
+
+Pearson: Ruido–NOx ≈ 0.21; Ruido–CO ≈ 0.23
+
+Spearman: Ruido–NOx ≈ 0.32; Ruido–CO ≈ 0.41; Ruido–NO ≈ 0.33
+
+Aunque las correlaciones no son elevadas, sí son estadísticamente consistentes y positivas en ambas métricas, lo que indica que:
+A medida que aumenta la concentración de contaminantes típicos del tráfico, también aumenta el nivel de ruido ambiental.
+
+Este patrón es coherente con la hipótesis de la “huella del tráfico”:
+los días o periodos con mayor intensidad de vehículos no solo elevan los niveles de NOx y CO, sino también los niveles de ruido por la circulación misma.
+
+Por el contrario, el ruido muestra correlaciones muy bajas o negativas con los compuestos aromáticos (C₆H₆, C₇H₈, C₈H₁₀), lo que sugiere que estos COVs no están directamente relacionados con el tráfico en movimiento, sino con emisiones estacionarias (industria, almacenamiento de combustible, evaporaciones).
+
+Los resultados de Spearman tienden a mostrar ligeramente correlaciones más altas con el ruido (especialmente con CO y NOx).
+Esto sugiere que la relación entre ruido y contaminantes del tráfico no es perfectamente lineal, pero sí monótona:
+a mayor tráfico (y por tanto ruido), mayor contaminación, aunque la relación no crezca de manera proporcional.
+
+En otras palabras, cuando el ruido se incrementa, los contaminantes del tráfico también tienden a aumentar, pero no necesariamente de forma uniforme.
+
+
+Representar evolución temporal
+
+Visualiza cómo se comportan NO₂, CO, PM10 y Ruido a lo largo del tiempo
+
+```{r}
+library(tidyr)
+
+trafico_df <- trafico_df %>%
+  mutate(Fecha = as.Date(Fecha))
+
+trafico_long <- trafico_df %>%
+  pivot_longer(cols = -Fecha, names_to = "Variable", values_to = "Valor")
+
+ggplot(trafico_long, aes(x = Fecha, y = Valor, color = Variable)) +
+  geom_line(alpha = 0.7) +
+  labs(title = "Evolución temporal de variables asociadas al tráfico",
+       x = "Fecha", y = "Concentración / Nivel (normalizados)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y")
+  
+```
+
+```{r}
+library(dplyr)
+library(lubridate)
+library(tidyr)
+library(ggplot2)
+
+# 1️⃣ Asegurar que Fecha es tipo Date
+trafico_df <- trafico_df %>%
+  mutate(Fecha = as.Date(Fecha))
+
+# 2️⃣ Extraer el número o nombre del mes
+trafico_df <- trafico_df %>%
+  mutate(Mes = month(Fecha, label = TRUE, abbr = FALSE))  # Ej: "enero", "febrero", etc.
+
+# 3️⃣ Calcular la media por mes (promedio de todos los años)
+trafico_media_mensual <- trafico_df %>%
+  group_by(Mes) %>%
+  summarise(across(-c(Fecha), mean, na.rm = TRUE)) %>%
+  ungroup()
+
+# 4️⃣ Pasar a formato largo para ggplot
+trafico_long_media <- trafico_media_mensual %>%
+  pivot_longer(cols = -Mes, names_to = "Variable", values_to = "Valor")
+
+# 5️⃣ Graficar
+ggplot(trafico_long_media, aes(x = Mes, y = Valor, color = Variable, group = Variable)) +
+  geom_line(size = 1) +
+  geom_point(size = 2) +
+  labs(
+    title = "Ciclo medio mensual de variables asociadas al tráfico (media 2010–2025)",
+    x = "Mes",
+    y = "Concentración media / Nivel"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.title = element_blank()
+  )
+
+
+
+```
+
+```{r}
+library(dplyr)
+library(lubridate)
+library(tidyr)
+library(ggplot2)
+
+# Asegúrate de que la fecha está en formato Date
+trafico_df <- trafico_df %>%
+  mutate(Fecha = as.Date(Fecha))
+
+# Extraer año y mes
+trafico_df <- trafico_df %>%
+  mutate(
+    Año = year(Fecha),
+    Mes = month(Fecha, label = TRUE, abbr = FALSE)
+  )
+
+# Calcular media mensual por año y mes
+trafico_media_mes_anio <- trafico_df %>%
+  group_by(Año, Mes) %>%
+  summarise(across(-Fecha, mean, na.rm = TRUE)) %>%
+  ungroup()
+
+# Pasar a formato largo
+trafico_long_mes_anio <- trafico_media_mes_anio %>%
+  pivot_longer(cols = -c(Año, Mes), names_to = "Variable", values_to = "Valor")
+
+# 🔹 Graficar una faceta por mes
+ggplot(trafico_long_mes_anio, aes(x = Año, y = Valor, color = Variable)) +
+  geom_line(size = 1) +
+  facet_wrap(~ Mes, scales = "free_y", ncol = 3) +
+  labs(
+    title = "Evolución anual de los contaminantes por mes (2010–2025)",
+    x = "Año", y = "Concentración media"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "bottom"
+  )
+
+for (mes in unique(trafico_long_mes_anio$Mes)) {
+  p <- trafico_long_mes_anio %>%
+    filter(Mes == mes) %>%
+    ggplot(aes(x = Año, y = Valor, color = Variable)) +
+    geom_line(size = 1) +
+    labs(
+      title = paste("Evolución anual del mes de", mes),
+      x = "Año", y = "Concentración media"
+    ) +
+    theme_minimal(base_size = 14) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          legend.position = "bottom")
+  
+  # Guardar imagen
+  print(p)
+}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+#############################################################################################################
+Contaminación industrial
+```{r}
+library(ggplot2)
+industria_vars <- c("Estacion", "SO2", "As", "Ni", "Cd", "Pb", "BaP")
+industria_df <- data[, industria_vars]
+
+# Evolución temporal
+
+for(elemento in industria_vars[-1]){
+  print(
+    ggplot(industria_df, aes(x = Estacion, y = !!sym(elemento))) +
+      geom_line(color = "steelblue") +
+      labs(title = paste("Evolución de ", elemento, " (posible fuente industrial)"), x = "Fecha", y = "µg/m³")+
+      theme_minimal() +
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1)  # 🔹 gira las etiquetas del eje X
+      )
+  )
+}
+```
+
+Como se puede observar, 
+
+
+###############################################################################
+
+```{r}
+
+```
