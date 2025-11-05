@@ -164,6 +164,7 @@ ggplot(datos_anuales_adicionales, aes(x = Anio, y = Valor_medio_anual, color = V
   )
 ```
 
+
 ```{r}
 datos_frecuencia <- data %>%
   # Quitamos registros completamente vacíos si los hubiera

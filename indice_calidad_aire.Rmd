@@ -73,6 +73,7 @@ Qué estaciones miden alguna vez el ICA.
 
 En qué años hay datos suficientes.
 
+
 ```{r}
 # --- 2.1: Preparar Fechas y Calcular ICA "Crudo" ---
 datos_exploracion <- datos %>%

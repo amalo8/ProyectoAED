@@ -61,4 +61,3 @@ n_filas_eliminadas <- n_filas_antes - n_filas_despues
 cat("Número de filas eliminadas debido a duplicados:", n_filas_eliminadas, "\n")
 ```
 
-

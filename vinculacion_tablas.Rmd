@@ -70,7 +70,8 @@ leer_datos_meteo <- function(ruta_archivo, nombre_estacion) {
   for (nuevo in names(renombres)) {
     viejo <- renombres[[nuevo]]
     if (viejo %in% names(datos)) {
-      datos <- datos %>% rename(!!nuevo := !!sym(viejo))
+      datos <- datos %>%
+        rename_with(~nuevo, .cols = viejo)
     }
   }
   
