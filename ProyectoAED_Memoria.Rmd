@@ -563,7 +563,7 @@ ggplot(cobertura_anual, aes(x = anio, y = Dias_con_ICA_Valido, fill = Estacion))
 total_dias_unicos_periodo <- n_distinct(datos_filtrados_estacion, na.rm = TRUE)
 
 # Variables a analizar
-variables_explicativas <- c("ICA_crudo")
+variable_ica <- c("ICA_crudo")
 
 # Calcular la matriz de cobertura por estación y año
 cobertura_por_estacion <- datos_filtrados_estacion %>%
@@ -571,10 +571,10 @@ cobertura_por_estacion <- datos_filtrados_estacion %>%
   group_by(Estacion, anio) %>%
   summarise(
     across(
-      all_of(variables_explicativas),
+      all_of(variable_ica),
       # porcentaje respecto a días distintos de ese año
       ~ (sum(!is.na(.)) / n_distinct(as.Date(Fecha))) * 100,
-      .names = "{.col}_pct"
+      .names = "{.col}"
     ),
     total_filas_en_estacion = n(),
     .groups = "drop"
@@ -591,7 +591,7 @@ print(cobertura_por_estacion)
 # Convertir a formato largo para ggplot
 cobertura_largo <- cobertura_por_estacion %>%
   pivot_longer(
-    cols = ends_with("_pct"),
+    cols = ICA_crudo,
     names_to = "Variable",
     values_to = "Cobertura"
   )
@@ -639,7 +639,7 @@ write.table(datos_filtrados,
           quote = FALSE)
 ```
 
-#4.3 Detección y Tratamiento de Outliers
+#4.3 Detección y Tratamiento de Outliers en Contaminantes Críticos
 Antes de calcular el ICA final, es crucial identificar y tratar los valores atípicos (outliers) en las concentraciones de los contaminantes críticos. Los outliers pueden distorsionar el cálculo del ICA y llevar a interpretaciones erróneas de la calidad del aire.
 ```{r}
 # Mostramos los boxplots para cada contaminante crítico
@@ -680,8 +680,270 @@ for (contaminante in contaminantes_criticos) {
 ```
 Sin embargo, en el boxplot podemos ver que esos valores no son de magnitud imposible para las variables, simplemente podría tratarse de días de más o menos contaminación, por lo que los dejaremos tal y como están.
 
-#
+#4.4 Imputación de Valores Faltantes
+Dado que el cálculo del ICA requiere la presencia de todos los contaminantes críticos, es necesario imputar los valores faltantes en el dataset filtrado. Primero analizaremos qué cantidad de valores faltantes hay en cada variable, y de qué tipo son.
+```{r}
+print("Visualización de valores faltantes ANTES de la imputación:")
+vis_miss(datos_filtrados, warn_large_data = FALSE)
+```
+Observamos que, aunque hemos filtrado, todavía existen valores faltantes (bloques negros) dentro de nuestras 5 estaciones. Estos son los huecos que debemos rellenar mediante imputación para tener una serie temporal completa.
 
+En el gráfico observamos líneas negras horizontales como bloques de filas, indicando que, para una observación específica (una Estacion en una Fecha concreta), no falta solo una variable faltan todas a la vez. Un fallo aleatorio no haría esto; esto es un fallo sistemático, como por ejemplo que la estación entera se apagó, estaba en mantenimiento, o se cortó la comunicación. Los datos son probablemente MNAR, ya que los fallos en bloque (mantenimiento, fallos del sensor) no son eventos aleatorios.
+
+Además, se ve que la mayoria de contaminantes tienen un patrón de bloques faltantes diferente confirmando la hipótesis de que no todas las estaciones miden siempre todas las variables del ICA. La falta de ICA_crudo está perfectamente correlacionada con la falta de los contaminantes. Esto es lógico y es la definición de MAR (Missing At Random): la falta del ICA se explica por la falta observada en NO2, O3, etc.
+
+Los datos son MAR, ya que la falta de ICA depende de la falta de sus contaminantes, y la falta de contaminantes depende de la variable Estacion.
+
+Para imputar los valores faltantes, utilizamos el método de interpolación de Kalman (`na_kalman` del paquete `imputeTS`) basado en el filtro de Kalman, un algoritmo estadístico que estima valores no observados en una serie temporal aprovechando la información de los puntos anteriores y posteriores. En nuestro caso, donde las variables presentan dependencias temporales claras y los fallos son en bloque, este método permite reconstruir las series de cada estación de forma coherente, continua y realista, sin introducir saltos artificiales ni distorsionar la dinámica original de la serie temporal.
+
+```{r}
+#Aseguramos el orden temporal por estación
+datos_filtrados <- datos_filtrados %>%
+  arrange(Estacion, Fecha)
+
+# Aplicar la imputación de Kalman a cada contaminante crítico
+datos_imputados <- datos_filtrados %>%
+  group_by(Estacion) %>%
+  mutate(
+    across(
+      all_of(contaminantes_criticos),
+      ~ na_kalman(.x, model = "StructTS", smooth = TRUE)
+    )
+  ) %>%
+  ungroup()
+
+print("Visualización de valores faltantes DESPUÉS de la imputación:")
+vis_miss(datos_imputados, warn_large_data = FALSE)
+```
+#4.5 Cálculo Final del ICA Diario por Estación
+Con los valores faltantes imputados, procedemos a calcular el ICA final para cada estación y día en el periodo seleccionado (2025-2025).
+```{r}
+datos_ica_final <- datos_imputados %>%
+  rowwise() %>%
+  mutate(
+    ICA = max(sapply(contaminantes_criticos, function(contaminante) {
+      asignar_categoria(get(contaminante), contaminante)
+    }))
+  ) %>%
+  ungroup() %>%
+  mutate(
+    Categoria_ICA = case_when(
+      ICA == 1 ~ "Buena",
+      ICA == 2 ~ "Razonablemente buena",
+      ICA == 3 ~ "Regular",
+      ICA == 4 ~ "Desfavorable",
+      ICA == 5 ~ "Muy desfavorable",
+      ICA == 6 ~ "Extremadamente Desfavorable",
+      TRUE ~ NA_character_ #no debería ocurrir ya que hemos imputado todos los valores
+    )
+  )
+
+# Mostrar un resumen del ICA final
+print(head(datos_ica_final))
+
+
+# Guardar el dataset final con ICA calculado
+write.table(datos_ica_final, 
+          "data/datos_ica_final_2015-2025.csv",
+          row.names = FALSE, 
+          sep=";",
+          quote = FALSE)
+
+cat(paste("Dataset final con ICA calculado guardado con", nrow(datos_ica_final), "registros.\n"))
+```
+
+## 5. Creación del Dataset Analítico Agregado para el análisis de correlación
+En este capítulo, explicamos cómo se construyó el dataset analítico agregado que se utilizará para el análisis de correlación entre el ICA y las variables meteorológicas y de fuentes de contaminación. Este dataset es esencial para responder a las preguntas explicativas planteadas en la introducción. 
+
+#5.1 Exploración de Cobertura de Datos y Filtrado para las Variables Explicativas
+Primero, cargamos el dataset final con el ICA calculado y exploramos la cobertura de datos para las variables meteorológicas y de fuentes de contaminación disponibles en el dataset original. El objetivo es crear un dataset de análisis (con todas las variables meteorológicas, ruido, etc.) pero que solo contenga las filas (días/estaciones) para las que logramos calcular un ICA. Como se ha mencionado, el ICA está calculado para las 5 estaciones, pero la Temperatura o el Ruido se miden en otras estaciones posiblemente.
+
+Primero cargamos los datos crudos para recuperar todas las variables meteorológicas y de fuentes de contaminación, y el dataset del ICA finalmente calculado.
+
+```{r}
+datos_crudos <- read.csv("data/datos_meteorologicos_limpios.csv", sep = ";", header = TRUE)
+
+#pasar columna fecha a formato fecha 
+datos_crudos <- datos_crudos %>%
+  mutate(
+    Fecha=as.Date(Fecha)
+  )
+
+#me quedo con 2015-2025 ya que es el perido considerado para el análisis del ICA
+datos_crudos <- datos_crudos %>%
+  filter(between(year(Fecha), 2015, 2025))
+
+
+#cargar el dataset final con ICA calculado
+datos_ica<-read.csv("data/datos_ica_final_2015-2025.csv", sep = ";", header = TRUE)
+
+#pasar columna fecha a formato fecha
+datos_ica <- datos_ica %>%
+  mutate(
+    Fecha=as.Date(Fecha)
+  )
+```
+
+
+Para analizar qué estaciones cubren qué variables vamos a seguir el mismo proceso que el empleado anteriormente con los contaminantes del ICA: obtenemos una tabla que nos muestre, para cada estación, qué porcentaje de datos tiene para cada variable. Así podremos decidir con fundamento para cada variable, que estación escogeremos, debido a su alta cobertura. 
+
+```{r}
+# Variables meteorológicas y de fuentes de contaminación a analiza
+total_dias_unicos_periodo <- n_distinct(datos_crudos$Fecha, na.rm = TRUE)
+
+# --- 1. Definir las variables que queremos analizar ---
+variables_explicativas <- c(
+  # Contaminantes Tráfico 
+  "NOx", "PM10", "Ruido",
+  # Contaminante fotoquímico
+  "O3",
+  # Meteorología
+  "Temperatura", "Velocidad.del.viento", "Precipitacion", "Radiacion.solar"
+)
+
+# Calcular la Matriz de Cobertura (Tabla)
+# Contamos el porcentaje de valores NO NULOS para cada variable/estación
+cobertura_por_estacion <- datos_crudos %>%
+  group_by(Estacion) %>%
+  summarise(
+    # Aplicamos esta función a todas las columnas (variables) de nuestra lista
+    across(
+      all_of(variables_explicativas), 
+      #calculamos el porcentaje respecto al total de días únicos en el periodo
+      ~ (sum(!is.na(.)) / total_dias_unicos_periodo) * 100,
+      .names = "{.col}"
+    ),
+    total_filas_en_estacion = n()
+  ) %>%
+  ungroup() %>%
+  arrange(desc(total_filas_en_estacion))
+
+print("--- MATRIZ DE COBERTURA (% de datos NO NULOS respecto al total de días del periodo) ---")
+print(cobertura_por_estacion)
+
+#Visualización (Heatmap de Cobertura) 
+#debemos crear un formato largo para ggplot en el que cada fila sea una combinación Estacion-Variable 
+cobertura_largo <- cobertura_por_estacion %>%
+  select(-total_filas_en_estacion) %>% 
+  pivot_longer(
+    cols = -Estacion, 
+    names_to = "Variable",
+    values_to = "Porcentaje"
+  )
+
+ggplot(cobertura_largo, aes(x = Variable, y = Estacion, fill = Porcentaje)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = paste0(round(Porcentaje, 0), "%")), size = 3) +
+  scale_fill_gradient(low = "red", high = "green", limits = c(0, 100)) + 
+  labs(
+    title = "Gráfico X: Mapa de Cobertura de Variables por Estación",
+    subtitle = "Porcentaje de cobertura respecto al TOTAL de días del periodo (2015-2025)",
+    x = "Variable Medida",
+    y = "Estación de Medición"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+Del análisis de cobertura, seleccionamos las estaciones con mejor cobertura para cada variable explicativa. Estas estaciones serán nuestras "fuentes" para construir el dataset analítico agregado:
+- Para las variables meteorológicas (Temperatura, Velocidad del viento, Precipitación, Radiación solar): la estación Conselleria Meteo tiene una cobertura excelente <98% para todas las variables. Es la única opción fiable.
+- Para el ozono (O3): Politécnico tiene una cobertura del 96%, siendo la mejor opción disponible.
+- Para el tráfico (NOx, PM10, Ruido): Podemos elegir Pista Silla.
+
+Vemos que la cobertura para el Ruido es del 71% en la Pista de Silla, pero del gráfico de la variable en el tiempo (apartado 3.1) ya vimos que solo se registró hasta 2022, luego se debió romper el sensor o algún incidente debió ocurrir para que no se registrará más, por lo que, aunque sería interesante estudiar su correlación con el ICA, no la incluiremos en el análisis final. 
+
+```{r}
+# Definir las estaciones fuente para cada variable
+#Datos Meteorológicos (Fuente: Conselleria Meteo)
+meteo_data <- datos_crudos %>%
+  filter(Estacion == "Conselleria Meteo") %>%
+  select(Fecha, Temperatura, Velocidad.del.viento, Precipitacion, Radiacion.solar)
+
+# Datos de Trafico (Fuente: Pista Silla)
+trafico_data <- datos_crudos %>%
+  filter(Estacion == "Pista Silla") %>%
+  select(Fecha, NOx, PM10)
+
+# Datos de Ozono (Fuente: Politecnico)
+ozono_data <- datos_crudos %>%
+  filter(Estacion == "Politecnico") %>%
+  select(Fecha, O3)
+```
+
+Obtenemos el ICA diario promedio de las 5 estaciones para tener una medida representativa de la calidad del aire en la ciudad.
+```{r}
+ica_por_dia <- datos_ica %>%
+  group_by(Fecha) %>%
+  summarise(ICA_diario_avg = mean(ICA, na.rm = TRUE))
+
+```
+
+
+Finalmente, ensamblamos todas las variables en un único dataset "ancho", con una fila por día y todas las variables explicativas junto al ICA diario promedio. 
+```{r}
+# Unir todas las variables en un único dataset por Fecha
+datos_analiticos <- ica_por_dia %>%
+  left_join(meteo_data, by = "Fecha") %>%
+  left_join(trafico_data, by = "Fecha") %>%
+  left_join(ozono_data, by = "Fecha")
+```
+
+#5.2 Detección y Tratamiento de Outliers en el Dataset Analítico
+De la misma manera que antes, exploramos los posibles valores atípicos en el dataset analítico resultante para decidir cómo tratarlos.
+```{r}
+# Boxplots para cada variable en el dataset analítico
+
+variables_analiticas <- names(datos_analiticos)[-1]  # Excluir la columna Fecha
+
+par(mfrow = c(3, 3))  # Configurar la ventana gráfica
+for (variable in c(variables_analiticas)) {
+  boxplot(datos_analiticos[[variable]], main = paste("Boxplot de", variable), ylab = "Valor")
+}
+par(mfrow = c(1, 1))  # Resetear la ventana gráfica
+```
+De nuevo, observamos que los valores atípicos no son de magnitud imposible para las variables, simplemente podrían tratarse de días de más o menos contaminación o condiciones meteorológicas extremas, por lo que los dejaremos tal y como están. Salvo un valor de precipitación extremadamente alto (más de 600 mm en un día), que parece un error de registro, por lo que lo sustituiremos por NA para que sea imputado posteriormente.
+
+Podríamos penasar que ese valor fue durante la DANA el 29 de octubre de 2024, sin embargo, si lo localizamos en el dataset:
+```{r}
+datos_analiticos %>%
+  filter(Precipitacion > 500) %>%
+  print()
+```
+
+vemos que no corresponde a esa fecha, sino al 27 de septiembre de 2022, por lo que parece un error de registro. Así que lo sustituimos por NA:
+```{r}
+datos_analiticos <- datos_analiticos %>%
+  mutate(
+    #umbral de 400 mm en un día
+    Precipitacion = ifelse(Precipitacion > 400, NA, Precipitacion)
+  )
+```
+
+#5.3 Imputación Final de Valores Faltantes en las Variables Explicativas
+
+Analizamos los valores faltantes en las variables explicativas seleccionadas. Aplicamos nuevamente la imputación de Kalman para asegurar que el dataset final esté completo.
+```{r}
+vis_miss(datos_analiticos, warn_large_data = FALSE)
+```
+
+En el gráfico, los datos mostrados presentan un patrón de ausencia no aleatoria: los huecos aparecen en bloques horizontales que afectan simultáneamente a varias variables, sobre todo entre variables meteorológicas o de tráfico, por separado. Esto indica un fallo sistemático como por ejemplo, la interrupción del registro en una estación o mantenimiento del sensor. Por tanto, los valores faltantes pueden explicarse por variables observadas (como la estación o la falta simultánea en otros contaminantes), se clasifican como MAR (Missing At Random).
+
+Aplicamos la imputación de Kalman a todas las variables explicativas en el dataset analítico.
+
+```{r}
+dataset_meteo_imputado <- na_kalman(datos_analiticos, model = "StructTS")
+vis_miss(dataset_meteo_imputado, warn_large_data = FALSE)
+```
+
+Finalmente, guardamos el dataset analítico completo y listo para el análisis entre variables posterior.
+```{r}
+# Guardar el dataset analítico final
+write.table(dataset_meteo_imputado, 
+          "data/datos_meteo_final_2015-2025.csv",
+          row.names = FALSE,
+          sep=";",
+          quote = FALSE)
+cat(paste("Dataset analítico final guardado con", nrow(dataset_meteo_imputado), "registros.\n"))
+```
 
 ## 5. Resultados (Parte 1): Análisis Descriptivo del ICA por Estación
 
