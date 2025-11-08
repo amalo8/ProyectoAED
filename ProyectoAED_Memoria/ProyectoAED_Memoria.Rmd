@@ -19,7 +19,7 @@ keywords: "Calidad del Aire; Análisis Exploratorio de Datos (AED); Índice de C
 dataavailability: |
   Los datos presentados en este estudio son de dominio público y están disponibles 
   
-  abiertamente en sus fuentes originales: Portal de Datos Abiertos del Ayuntamiento de Valencia (https://valencia.opendatasoft.com/pages/home/) y Portal de Calidad Ambiental de la Generalitat Valenciana (https://mediambient.gva.es/es/web/calidad-ambiental/calidad-del-aire)
+  abiertamente en sus fuentes originales: Portal de Datos Abiertos del Ayuntamiento de Valencia (https://valencia.opendatasoft.com/pages/home/)) y Portal de Calidad Ambiental de la Generalitat Valenciana (https://mediambient.gva.es/es/web/calidad-ambiental/calidad-del-aire)
 output:
   rticles::mdpi_article:
     extra_dependencies: longtable

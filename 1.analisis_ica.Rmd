@@ -58,7 +58,7 @@ ggplot(distribucion_ica, aes(x = Categoria_ICA_ordenada, y = Porcentaje, fill = 
   geom_text(aes(label = paste0(Porcentaje, "%")), vjust = -0.3, size = 3.5) +
   labs(
     title = "Distribución de la Calidad del Aire en Valencia (2015-2025)",
-    subtitle = "Basado en datos imputados de 3 estaciones",
+    subtitle = "Basado en datos imputados de 5 estaciones",
     x = "Calidad del Aire (ICA)",
     y = "Porcentaje de Días (%)"
   ) +
@@ -74,9 +74,6 @@ Los días con calidad "Regular" serán menos comunes.
 Los días de calidad "Desfavorable" o peor ("Muy desfavorable", "Extremadamente desfavorable") serán muy poco frecuentes o incluso inexistentes (0 días) en el conjunto de datos.
 
 En resumen, la calidad general del aire en Valencia, según los datos de estas tres estaciones entre 2015 y 2025, es predominantemente buena.
-
-
-
 
 Pregunta de Tendencia: ¿Ha mejorado o empeorado la calidad del aire (ICA) en la última década? ¿Se observa una tendencia lineal (al alza o a la baja) desde 2015?
 ```{r}
@@ -472,8 +469,6 @@ ggplot(ica_estacional_comparativo,
 
 Este gráfico te dará la respuesta completa:Patrón Estacional (Línea Negra discontinua): Te mostrará el patrón climático general de Valencia. Verás si los peores meses son sistemáticamente los de verano (por el $O_3$) y los mejores los de primavera/otoño.Interacción Espacio-Tiempo (Líneas de Colores):Si todas las líneas de colores siguen la misma forma (suben y bajan juntas): Significa que SÍ tienen el mismo patrón estacional, dominado por el clima (ej. el sol en verano afecta a todas).Si las líneas de colores están a diferentes alturas: Muestra qué estaciones están, de media, más contaminadas (líneas más arriba) o más limpias (líneas más abajo).Si las líneas se cruzan o tienen picos diferentes: Significa que NO tienen el mismo patrón. Por ejemplo, una estación urbana (como "Politecnico") podría tener un pico en invierno por $NO_2$ (tráfico) que las otras no tienen, mientras que las del puerto podrían tener picos distintos por $SO_2$ o $PM_{10}$.
 
-
-
 Pregunta Diaria (Comportamiento): ¿Existen diferencias en la contaminación (NOx, Ruido) entre los días laborables y los fines de semana?
 
 ```{r}
@@ -562,8 +557,8 @@ Pregunta (Creación): ¿Cómo influyen el calor y el sol en la creación de cont
 5. Preguntas Explicativas (Fuentes de Contaminación)
 Objetivo: Identificar las posibles fuentes humanas (tráfico, industria).
 
-Pregunta (Huella del Tráfico): ¿Podemos identificar la "huella" del tráfico? ¿Existe una correlación positiva entre los contaminantes primarios asociados al tráfico (como NOx y Benceno C6H6) y la variable Ruido?
+Pregunta (Huella del Tráfico): ¿Podemos identificar la "huella" del tráfico? ¿Existe una correlación positiva entre los contaminantes primarios asociados al tráfico (como NOx y pm10)?
 
-
+Pregunta (Impacto Industrial): ¿Cuál es el impacto de las fuentes industriales? ¿Se observa una correlación entre contaminantes industriales específicos (como SO2 y PM10) y la proximidad a zonas industriales o puertos?
 
 
