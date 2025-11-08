@@ -32,7 +32,7 @@ editor_options:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, warning = FALSE,message = FALSE,fig.asp = 0.7,out.width = "85%")
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE,message = FALSE,fig.asp = 0.7,out.width = "75%", fig.align = "center")
 ```
 
 # Introducción
@@ -73,6 +73,7 @@ library(lubridate) # Para trabajar con fechas: funciones como dmy(), ymd(), etc.
 library(readr) # Lectura de archivos `.csv` 
 library(tidyr) # Para transformar dataframes entre formatos ancho y largo
 library(ggplot2) # Para visualización de datos
+library(patchwork) # Para combinar múltiples gráficos ggplot2
 library(ggcorrplot) # Para gráficos de matrices de correlación
 library(naniar) # Para visualización y manejo de datos faltantes
 library(imputeTS) # Para imputación de valores faltantes en series temporales
@@ -125,7 +126,8 @@ datos_historicos <- datos_historicos %>%
 
 ```
 
-Los archivos meteorológicos recientes (2023-2025) descargados del portal de la GVA presentaban una estructura compleja. Cada archivo `.csv` incluía filas de metadatos al inicio, formatos de encabezado inconsistentes y nombres de columna abreviados y no uniformes.
+Los archivos meteorológicos recientes (2023-2025) descargados del portal de la GVA presentaban una estructura compleja.
+Cada archivo `.csv` incluía filas de metadatos al inicio, formatos de encabezado inconsistentes y nombres de columna abreviados y no uniformes.
 
 Para solucionar esto, se implementó un proceso automatizado para omitir las filas de metadatos, leer los encabezados y estandarizar los nombres de las variables, convertir las fechas de formato texto a `Date` y añadir una columna para identificar la procedencia de los datos según la estación a la que pertenecen.
 
@@ -248,7 +250,9 @@ for (codigo in names(estaciones)) {
 
 ### Combinación final de todos los datos
 
-Una vez procesadas las dos fuentes de datos, se procedió a su unificación. Ambos conjuntos de datos se combinaron verticalmente para crear un único dataset maestro. Este dataframe representa la totalidad de los datos brutos recopilados Y sirve como punto de partida para la siguiente fase de limpieza, preprocesamiento y análisis exploratorio. 
+Una vez procesadas las dos fuentes de datos, se procedió a su unificación.
+Ambos conjuntos de datos se combinaron verticalmente para crear un único dataset maestro.
+Este dataframe representa la totalidad de los datos brutos recopilados Y sirve como punto de partida para la siguiente fase de limpieza, preprocesamiento y análisis exploratorio.
 
 ```{r}
 datos_combinados <- bind_rows(datos_historicos,bind_rows(todos_los_datos))
@@ -263,7 +267,8 @@ cat("El dataset combinado tiene", ncol(datos_combinados), "columnas y", nrow(dat
 
 A partir del dataset maestro (`datos_combinados.csv`), se realizó un proceso de limpieza y preprocesamiento para asegurar la calidad y consistencia de los datos antes del análisis.
 
-Esta fase fue fundamental. Primero, se descartaron columnas irrelevantes, como variables administrativas (Id, Dia.de.la.semana, Fecha.creacion, Fecha.baja) y variables no relacionadas con el cálculo del índice de calidad del aire (metales pesados: As, Pb, Cd, Ni, BaP). 
+Esta fase fue fundamental.
+Primero, se descartaron columnas irrelevantes, como variables administrativas (Id, Dia.de.la.semana, Fecha.creacion, Fecha.baja) y variables no relacionadas con el cálculo del índice de calidad del aire (metales pesados: As, Pb, Cd, Ni, BaP).
 
 ```{r}
 # Carga del dataset combinado
@@ -282,9 +287,11 @@ datos_limpios <- datos %>%
   arrange(Fecha) # Ordenar por fecha
 ```
 
-A continuación, se filtraron las filas inutilizables, eliminando cualquier registro que no tuviera información en las columnas clave (Fecha y Estacion), así como todas las filas duplicadas. Finalmente, el dataset resultante se ordenó cronológicamente por Fecha.
+A continuación, se filtraron las filas inutilizables, eliminando cualquier registro que no tuviera información en las columnas clave (Fecha y Estacion), así como todas las filas duplicadas.
+Finalmente, el dataset resultante se ordenó cronológicamente por Fecha.
 
-El resultado de este proceso de limpieza se resume en la salida adjunta, que cuantifica el número total de filas eliminadas. El dataframe limpio se exportó a un archivo `.csv` para su uso en las siguientes etapas.
+El resultado de este proceso de limpieza se resume en la salida adjunta, que cuantifica el número total de filas eliminadas.
+El dataframe limpio se exportó a un archivo `.csv` para su uso en las siguientes etapas.
 
 ```{r}
 #contabilizar el numero de filas eliminadas
@@ -316,7 +323,8 @@ data$Fecha <- as.Date(data$Fecha)
   
 ```
 
-Una vez cargado el dataset limpio, el primer paso del análisis exploratorio es examinar las tendencias a largo plazo. Para ello, se calcularon las concentraciones medias anuales de todos los contaminantes disponibles desde 2004 hasta 2025. 
+Una vez cargado el dataset limpio, el primer paso del análisis exploratorio es examinar las tendencias a largo plazo.
+Para ello, se calcularon las concentraciones medias anuales de todos los contaminantes disponibles desde 2004 hasta 2025.
 
 ```{r}
 #Especificamos los contaminantes a analizar
@@ -341,7 +349,7 @@ datos_anuales_todos <- data %>%
   )
 ```
 
-```{r}
+```{r, fig.cap="Evolución de Variables Contaminantes (2004 - 2025)",fig.pos = "!h"}
 #graficamos en el eje x el año y en el eje y la concentración media anual de cada contaminante. Coloreamos por contaminante.
 ggplot(datos_anuales_todos, aes(x = Anio, y = Concentracion_media, color = Contaminante)) +
   # Dibujar líneas y puntos para cada contaminante
@@ -353,7 +361,6 @@ ggplot(datos_anuales_todos, aes(x = Anio, y = Concentracion_media, color = Conta
 # Usamos facet_wrap con scales = "free_y" para que cada contaminante tenga su propia escala de Y.
   facet_wrap(~ Contaminante, scales = "free_y", ncol = 3) + 
   labs(
-    title = "Figura 1: Evolución de Variables Contaminantes (2004 - 2025)",
     x = "Año",
     y = "Concentración Media Anual"
   ) +
@@ -365,11 +372,13 @@ ggplot(datos_anuales_todos, aes(x = Anio, y = Concentracion_media, color = Conta
     axis.text.x = element_text(angle = 45, hjust = 1)
   )
 ```
+
 Vemos que la mayoría de sustancias cubren el periodo completo de 2004 a 2025, pero algunas (como $PM_{1}$ y $NH_3$) solo tienen datos desde 2008 y 2015, respectivamente.
 
-De forma similar, se analizaron las tendencias anuales de las variables meteorológicas y ambientales clave, como la temperatura, la velocidad del viento, la precipitación y el ruido. La Figura 2 presenta estos resultados, de nuevo con escalas independientes para cada variable.
+De forma similar, se analizaron las tendencias anuales de las variables meteorológicas y ambientales clave, como la temperatura, la velocidad del viento, la precipitación y el ruido.
+La Figura 2 presenta estos resultados, de nuevo con escalas independientes para cada variable.
 
-```{r}
+```{r, fig.cap="Evolución de Variables Ambientales y Meteorológicas (2004 - 2025)",fig.pos = "!h"}
 variables_adicionales <- c("Velocidad.del.viento", "Velocidad.maxima.del.viento","Temperatura", "Humidad.relativa", "Presion", "Radiacion.solar", "Precipitacion", "Ruido")
 
 datos_anuales_adicionales <- data %>%
@@ -390,7 +399,6 @@ ggplot(datos_anuales_adicionales, aes(x = Anio, y = Valor_medio_anual, color = V
   scale_x_continuous(breaks = seq(min(datos_anuales_adicionales$Anio), max(datos_anuales_adicionales$Anio), by = 2)) +
   facet_wrap(~ Variable, scales = "free_y", ncol = 3) + 
   labs(
-    title = "Figura 2: Evolución de Variables Ambientales y Meteorológicas (2004 - 2025)",
     x = "Año",
     y = "Valor Medio Anual"
   ) +
@@ -400,14 +408,18 @@ ggplot(datos_anuales_adicionales, aes(x = Anio, y = Valor_medio_anual, color = V
     axis.text.x = element_text(angle = 45, hjust = 1)
   )
 ```
+
 Se observa que la variable de Precipitación y Velocidad máxima del viento solo tienen valores desde 2011, mientras que la variable Ruido solo tiene datos hasta 2022.
 
 ## Análisis de Cobertura y Disponibilidad de Datos por Estación y Año
 
-Además de analizar las tendencias de las medias anuales, es fundamental evaluar la cobertura y disponibilidad de los datos. Un análisis del número de registros por estación y año nos permite identificar qué periodos y estaciones tienen datos suficientes para un análisis robusto. La Figura 3 presenta esta distribución mediante un gráfico de barras apiladas. 
+Además de analizar las tendencias de las medias anuales, es fundamental evaluar la cobertura y disponibilidad de los datos.
+Un análisis del número de registros por estación y año nos permite identificar qué periodos y estaciones tienen datos suficientes para un análisis robusto.
+La Figura 3 presenta esta distribución mediante un gráfico de barras apiladas. El gráfico muestra un crecimiento en el volumen de registros anuales, lo cual se debe a la expansión progresiva de la red de vigilancia. Se observa cómo a las estaciones iniciales (como `Viveros` y `Pista Silla`) se suman grandes contribuyentes de datos a partir de 2010 y un nuevo grupo de estaciones portuarias tras el 2020.
 
-```{r}
+```{r, fig.cap="Cobertura de Datos por Estación y Año.",fig.pos = "!h",out.width='60%'}
 datos_frecuencia <- data %>% 
+  mutate(Anio = year(Fecha)) %>%
   # Agrupamos por Año y Estación y contamos las filas (registros)
   group_by(Anio, Estacion) %>%
   summarise(
@@ -419,7 +431,6 @@ datos_frecuencia <- data %>%
 ggplot(datos_frecuencia, aes(x = Anio, y = Numero_Registros, fill = Estacion)) +
   geom_bar(stat = "identity") +
   labs(
-    title = "Cobertura de Datos por Estación y Año",
     x = "Año",
     y = "Número de Registros",
     fill = "Estación"
@@ -430,19 +441,27 @@ ggplot(datos_frecuencia, aes(x = Anio, y = Numero_Registros, fill = Estacion)) +
   )
 
 ```
-El gráfico muestra un crecimiento en el volumen de registros anuales, lo cual se debe a la expansión progresiva de la red de vigilancia. Se observa cómo a las estaciones iniciales (como 'Viveros' y 'Pista Silla') se suman grandes contribuyentes de datos a partir de 2010 y un nuevo grupo de estaciones portuarias tras el 2020. 
 
 # Derivación de Variable Clave: Índice de Calidad del Aire (ICA)
 
 El Índice de Calidad del Aire (ICA) es una medida compuesta que sintetiza la concentración de varios contaminantes en un solo valor, facilitando la interpretación de la calidad del aire.
 En este capítulo, se explica cómo se calcula el ICA a partir de las concentraciones diarias de los contaminantes clave: $PM_{10}$ (Partículas en suspensión $< 10 \mu m$), $PM_{2.5}$ (Partículas en suspensión $< 2.5 \mu m$), $NO_2$ (Dióxido de nitrógeno), $O_3$ (Ozono) y $SO_2$ (Dióxido de azufre).
-La definición utilizada (basada en el estándar europeo, el Índice Común Europeo de Calidad del Aire) establece que, para reportar un índice de calidad del aire completo y representativo del día para una ubicación es necesario tener la medición de todos los contaminantes críticos para ese día en esa estación.
-El ICA diario se basa en el principio del peor escenario: Se calcula un subíndice para cada uno de los cinco contaminantes convirtiendo la concentración a una escala de 1 a 6, el ICA final del día es el valor máximo (el peor) de esos cinco subíndices.
-Si falta un contaminante, no se puede saber si el subíndice de ese contaminante faltante podría haber sido el peor de todos, lo que llevaría a subestimar el riesgo real.
+
+La definición utilizada (basada en el estándar europeo) establece que, para reportar un índice de calidad del aire completo y representativo del día para una ubicación es necesario tener la medición de todos los contaminantes críticos para ese día en esa estación.
 
 ## Cálculo del ICA Diario por Estación
 
-Primero, cargamos los datos crudos y definimos la función clave `asignar_categoria` que usaremos para calcular el ICA.
+Para el análisis, primero se cargaron los datos limpios.
+El paso clave fue la creación de una función para calcular el Índice de Calidad del Aire (ICA) Europeo.
+
+Esta función asigna una categoría numérica (de 1 a 6) a la concentración de cada contaminante según los umbrales establecidos por la normativa europea.
+El ICA final del día es el valor máximo (el peor) de esos cinco subíndices.
+Si falta un contaminante, no se puede saber si el subíndice de ese contaminante faltante podría haber sido el peor de todos, lo que llevaría a subestimar el riesgo real.
+La Figura 4 detalla los umbrales de concentración (en $\mu g/m^3$) utilizados para cada contaminante y categoría, que se corresponden con la lógica implementada en la función.
+
+```{r umbrales_ica_imagen, echo=FALSE, fig.env='figure', fig.pos='H', fig.cap="Umbrales de Concentración para el Cálculo del Índice de Calidad del Aire (ICA) Europeo", out.width='60%', fig.align='center'}
+knitr::include_graphics("ICA.png")
+```
 
 ```{r}
 # Carga de datos limpios
@@ -480,12 +499,10 @@ asignar_categoria <- function(concentracion, contaminante) {
 
 ## Exploración de Cobertura de Datos y Filtrado para el Cálculo del ICA
 
-Primero, exploramos los datos crudos para entender sus limitaciones.
-Calculamos un "ICA crudo" (solo en las filas donde los 5 contaminantes están presentes) para identificar:
-
--   Qué estaciones miden alguna vez el ICA.
-
--   En qué años hay datos suficientes
+El primer paso para derivar el ICA es una exploración de la cobertura.
+Dado que el ICA requiere la medición simultánea de los cinco contaminantes críticos, se calculó un "ICA preliminar".
+Este se marcó como válido solo para los días y estaciones donde los cinco valores estaban presentes.
+El objetivo era identificar qué estaciones de la red miden, en algún momento, el conjunto completo de contaminantes.
 
 ```{r}
 # Calcular el ICA crudo para todas las filas, en las que no esten disponibles todos los contaminantes, se podrá un NA
@@ -512,21 +529,20 @@ cobertura_estaciones <- datos_ica_crudo %>%
   ) %>%
   arrange(desc(Cobertura_ICA))
 
-print("--- Análisis de Cobertura del ICA por Estación (Todos los años) ---")
-print(cobertura_estaciones)
 
 #Identificamos las estaciones válidas (las que tienen > 0% de cobertura)
 estaciones_validas <- cobertura_estaciones %>%
   filter(Cobertura_ICA > 0) %>%
   pull(Estacion)
-
-print("Estaciones VÁLIDAS (miden los 5 contaminantes):")
-print(estaciones_validas)
-
 ```
 
-Los resultados de la cobertura por estaciones muestran que solo 7/12 estaciones tienen una cobertura superior al 0%.
-Sin embargo, en el gráfico se observa que las estaciones del Puerto son las más modernas y solo incluyen datos desde mediados de 2020, por lo que las eliminaremos ya que no cubren la mayoria de años.
+```{r}
+print("Estaciones válidas (miden los 5 contaminantes):")
+print(estaciones_validas)
+```
+
+Los resultados de la cobertura por estaciones muestran que solo 7 de las 12 estaciones tienen una cobertura superior al 0%.
+Sin embargo, como se observó en el análisis de cobertura anual (Figura 3), las estaciones del Puerto son las más modernas y solo incluyen datos desde mediados de 2020, por lo que se decide eliminarlas del análisis del ICA para mantener un conjunto de estaciones comparable a lo largo del tiempo, quedando finalmente 5 estaciones válidas.
 
 ```{r}
 estaciones_validas <- estaciones_validas[!grepl("Puerto llit|Puerto Moll", estaciones_validas)]
@@ -540,37 +556,64 @@ cat(paste("Dataset filtrado a", nrow(datos_filtrados_estacion), "registros (5 es
 
 ```
 
-Por otro lado, analizamos la cobertura anual del ICA por estación para identificar qué años tienen datos suficientes para el análisis.
+Tras el filtrado inicial de estaciones, se analizó la cobertura temporal del ICA para las 5 estaciones restantes.
+El objetivo era identificar un periodo de estudio coherente en el que todas las estaciones tuvieran datos suficientes.
+La Figura 5 presenta esta la información en forma de gráfico de calor, mostrando el porcentaje de cobertura de ICA para cada estación-año.
+Los valores cercanos al 100% (verde) indican una cobertura completa, mientras que los valores bajos (rojo) señalan periodos con datos insuficientes.
 
-```{r}
-# Identifica qué años son útiles
-cobertura_anual <- datos_filtrados_estacion %>%
-  mutate(anio = year(as.Date(Fecha))) %>%          # extrae el año de la fecha
-  group_by(anio, Estacion) %>%                               # agrupa por año y estacion
-  summarise(
-    Total_Dias_Registrados = n_distinct(as.Date(Fecha)),   # días distintos en el año
-    Dias_con_ICA_Valido = sum(!is.na(ICA_crudo)),          # días con dato válido
-    .groups = "drop"
-  )
+<!-- # ```{r} -->
 
-#Graficar la cobertura anual del ICA por estación
-ggplot(cobertura_anual, aes(x = anio, y = Dias_con_ICA_Valido, fill = Estacion)) +
-  geom_bar(stat = "identity") +
-  labs(
-    title = "Cobertura Anual del ICA por Estación",
-    x = "Año",
-    y = "Días con ICA Válido",
-    fill = "Estación"
-  ) +
-  theme_minimal() +
-  theme(
-    axis.text.x = element_text(angle = 45, hjust = 1)
-  )
-```
+<!-- # # Identifica qué años son útiles -->
 
-```{r}
+<!-- # cobertura_anual <- datos_filtrados_estacion %>% -->
 
-#Calcular días únicos totales (si quieres seguir usándolo después)
+<!-- #   mutate(anio = year(as.Date(Fecha))) %>%          # extrae el año de la fecha -->
+
+<!-- #   group_by(anio, Estacion) %>%                               # agrupa por año y estacion -->
+
+<!-- #   summarise( -->
+
+<!-- #     Total_Dias_Registrados = n_distinct(as.Date(Fecha)),   # días distintos en el año -->
+
+<!-- #     Dias_con_ICA_Valido = sum(!is.na(ICA_crudo)),          # días con dato válido -->
+
+<!-- #     .groups = "drop" -->
+
+<!-- #   ) -->
+
+<!-- #  -->
+
+<!-- # #Graficar la cobertura anual del ICA por estación -->
+
+<!-- # ggplot(cobertura_anual, aes(x = anio, y = Dias_con_ICA_Valido, fill = Estacion)) + -->
+
+<!-- #   geom_bar(stat = "identity") + -->
+
+<!-- #   labs( -->
+
+<!-- #     title = "Cobertura Anual del ICA por Estación", -->
+
+<!-- #     x = "Año", -->
+
+<!-- #     y = "Días con ICA Válido", -->
+
+<!-- #     fill = "Estación" -->
+
+<!-- #   ) + -->
+
+<!-- #   theme_minimal() + -->
+
+<!-- #   theme( -->
+
+<!-- #     axis.text.x = element_text(angle = 45, hjust = 1) -->
+
+<!-- #   ) -->
+
+<!-- # ``` -->
+
+```{r, fig.cap="Matriz de Cobertura Anual del ICA por Estación (2004-2025)",fig.pos = "h!",fig.asp=0.5,out.width = "100%"}
+
+#Calcular días únicos totales 
 total_dias_unicos_periodo <- n_distinct(datos_filtrados_estacion, na.rm = TRUE)
 
 # Variables a analizar
@@ -603,10 +646,10 @@ cobertura_largo <- cobertura_por_estacion %>%
 
 ggplot(cobertura_largo, aes(x = factor(anio), y = Estacion, fill = Cobertura)) +
   geom_tile(color = "white") +
-  geom_text(aes(label = paste0(round(Cobertura, 0), "%")), size = 3) +
+  geom_text(aes(label = paste0(round(Cobertura, 0), "%")), size = 2) +
   scale_fill_gradient(low = "red", high = "green", limits = c(0, 100)) +
+  coord_fixed(ratio = 1) +
   labs(
-    title = "Heatmap de Cobertura Anual del ICA por Estación",
     x = "Año",
     y = "Estación",
     fill = "Cobertura (%)"
@@ -618,8 +661,9 @@ ggplot(cobertura_largo, aes(x = factor(anio), y = Estacion, fill = Cobertura)) +
 
 ```
 
-Con base en este análisis, decidimos filtrar de nuevo el dataset para incluir solo los años con suficiente cobertura, estableciendo entonces nuestro análisis centrao en la última década.
-Nuestro dataset final para este estudio irá de enero de 2015 a los últimos registros actuales de agosto de 2025.
+Se observa que la cobertura antes de 2015 es incompleta y esporádica para varias estaciones.
+Por lo tanto, para asegurar un análisis robusto y comparable, se decidió filtrar de nuevo el dataset para incluir solo los años con suficiente cobertura: enero de 2015 a agosto de 2025.
+Este dataset filtrado de la última década será la base para el resto del estudio.
 
 ```{r}
 datos_filtrados <- datos_filtrados_estacion %>%
@@ -646,6 +690,7 @@ write.table(datos_filtrados,
 
 Antes de calcular el ICA final, es crucial identificar y tratar los valores atípicos (outliers) en las concentraciones de los contaminantes críticos.
 Los outliers pueden distorsionar el cálculo del ICA y llevar a interpretaciones erróneas de la calidad del aire.
+Para ello, se generaron boxplots para cada contaminante crítico, permitiendo una visualización clara de la distribución de los datos y la identificación de posibles outliers.
 
 ```{r}
 # Mostramos los boxplots para cada contaminante crítico
@@ -656,66 +701,82 @@ for (contaminante in contaminantes_criticos) {
 par(mfrow = c(1, 1))  # Resetear la ventana gráfica
 ```
 
-Identificamos los outliers utilizando el método del rango intercuartílico (IQR).
-Los valores que caen fuera de 1.5 veces el IQR por debajo del primer cuartil (Q1) o por encima del tercer cuartil (Q3) se consideran outliers.
+<!-- Identificamos los outliers utilizando el método del rango intercuartílico (IQR). -->
 
-```{r}
-# Función para detectar outliers usando el método del IQR
-detectar_outliers <- function(x) {
-  # Calcular cuartiles
-  Q1 <- quantile(x, 0.25, na.rm = TRUE)
-  Q3 <- quantile(x, 0.75, na.rm = TRUE)
-  IQR_val <- Q3 - Q1
-  
-  # Límites inferior y superior
-  limite_inferior <- Q1 - 1.5 * IQR_val
-  limite_superior <- Q3 + 1.5 * IQR_val
-  
-  # Retornar un vector lógico (TRUE = es outlier)
-  outliers <- (x < limite_inferior) | (x > limite_superior)
-  
-  return(outliers)
-}
+<!-- Los valores que caen fuera de 1.5 veces el IQR por debajo del primer cuartil (Q1) o por encima del tercer cuartil (Q3) se consideran posibles outliers. -->
 
-#Aplicamos la función a cada contaminante
-for (contaminante in contaminantes_criticos) {
-  x <- datos_filtrados[[contaminante]]
-  outliers_logicos <- detectar_outliers(x)
-  n_outliers <- sum(outliers_logicos, na.rm = TRUE)
-  
-  cat(contaminante, "→", n_outliers, "outliers detectados\n")
-}
-```
+<!-- ```{r} -->
 
-Sin embargo, en el boxplot podemos ver que esos valores no son de magnitud imposible para las variables, simplemente podría tratarse de días de más o menos contaminación, por lo que los dejaremos tal y como están.
+<!-- # Función para detectar outliers usando el método del IQR -->
+
+<!-- detectar_outliers <- function(x) { -->
+
+<!--   # Calcular cuartiles -->
+
+<!--   Q1 <- quantile(x, 0.25, na.rm = TRUE) -->
+
+<!--   Q3 <- quantile(x, 0.75, na.rm = TRUE) -->
+
+<!--   IQR_val <- Q3 - Q1 -->
+
+<!--   # Límites inferior y superior -->
+
+<!--   limite_inferior <- Q1 - 1.5 * IQR_val -->
+
+<!--   limite_superior <- Q3 + 1.5 * IQR_val -->
+
+<!--   # Retornar un vector lógico (TRUE = es outlier) -->
+
+<!--   outliers <- (x < limite_inferior) | (x > limite_superior) -->
+
+<!--   return(outliers) -->
+
+<!-- } -->
+
+<!-- #Aplicamos la función a cada contaminante -->
+
+<!-- for (contaminante in contaminantes_criticos) { -->
+
+<!--   x <- datos_filtrados[[contaminante]] -->
+
+<!--   outliers_logicos <- detectar_outliers(x) -->
+
+<!--   n_outliers <- sum(outliers_logicos, na.rm = TRUE) -->
+
+<!--   cat(contaminante, "→", n_outliers, "outliers detectados\n") -->
+
+<!-- } -->
+
+<!-- ``` -->
+
+Analizando los boxplots, se identificaron varios valores fuera de los bigotes en las concentraciones de los contaminantes críticos.
+Sin embargo, dado que estos valores atípicos por su magnitud podrían representar episodios reales de contaminación, se decidió no eliminarlos ni imputarlos en esta fase.
 
 ## Imputación de Valores Faltantes
 
 Dado que el cálculo del ICA requiere la presencia de todos los contaminantes críticos, es necesario imputar los valores faltantes en el dataset filtrado.
 Primero analizaremos qué cantidad de valores faltantes hay en cada variable, y de qué tipo son.
 
-```{r}
-print("Visualización de valores faltantes ANTES de la imputación:")
+```{r, fig.cap="Visualización de Valores Faltantes en Contaminantes Críticos (2015-2025)",fig.pos = "!h",fig.asp=0.5,out.width="65%"}
 vis_miss(datos_filtrados, warn_large_data = FALSE)
 ```
 
-Observamos que, aunque hemos filtrado, todavía existen valores faltantes (bloques negros) dentro de nuestras 5 estaciones.
+Observamos que, aunque hemos filtrado, todavía existen valores faltantes dentro de nuestras 5 estaciones.
 Estos son los huecos que debemos rellenar mediante imputación para tener una serie temporal completa.
 
-En el gráfico observamos líneas negras horizontales como bloques de filas, indicando que, para una observación específica (una Estacion en una Fecha concreta), no falta solo una variable faltan todas a la vez.
+En el gráfico observamos líneas negras horizontales como bloques de filas, indicando que, para una observación específica, no falta solo una variable faltan todas a la vez.
 Un fallo aleatorio no haría esto; esto es un fallo sistemático, como por ejemplo que la estación entera se apagó, estaba en mantenimiento, o se cortó la comunicación.
-Los datos son probablemente MNAR, ya que los fallos en bloque (mantenimiento, fallos del sensor) no son eventos aleatorios.
+Los datos son probablemente MNAR, ya que los fallos en bloque no son eventos aleatorios.
 
-Además, se ve que la mayoria de contaminantes tienen un patrón de bloques faltantes diferente confirmando la hipótesis de que no todas las estaciones miden siempre todas las variables del ICA.
-La falta de ICA_crudo está perfectamente correlacionada con la falta de los contaminantes.
-Esto es lógico y es la definición de MAR (Missing At Random): la falta del ICA se explica por la falta observada en $NO_2$, $O_3$, etc.
-
-Los datos son MAR, ya que la falta de ICA depende de la falta de sus contaminantes, y la falta de contaminantes depende de la variable Estacion.
+Por otro lado, también se ve que la mayoria de contaminantes tienen un patrón de bloques faltantes diferente confirmando la hipótesis de que no todas las estaciones miden siempre todas las variables del ICA.
+La falta de ICA está perfectamente explicada por la falta de los contaminantes que a su vez dependen de la variable Estación.
+Esto es lógico y es la definición de MAR.
 
 Para imputar los valores faltantes, utilizamos el método de interpolación de Kalman (`na_kalman` del paquete `imputeTS`) basado en el filtro de Kalman, un algoritmo estadístico que estima valores no observados en una serie temporal aprovechando la información de los puntos anteriores y posteriores.
-En nuestro caso, donde las variables presentan dependencias temporales claras y los fallos son en bloque, este método permite reconstruir las series de cada estación de forma coherente, continua y realista, sin introducir saltos artificiales ni distorsionar la dinámica original de la serie temporal.
+Este método permite reconstruir las series de cada estación de forma coherente, continua y realista, sin introducir saltos artificiales ni distorsionar la dinámica original de la serie temporal.
 
 ```{r}
+#,fig.cap="Visualización de Valores Faltantes en Contaminantes Críticos despúes de la Imputación (2015-2025)",fig.pos = "!h"}
 #Aseguramos el orden temporal por estación
 datos_filtrados <- datos_filtrados %>%
   arrange(Estacion, Fecha)
@@ -731,13 +792,13 @@ datos_imputados <- datos_filtrados %>%
   ) %>%
   ungroup()
 
-print("Visualización de valores faltantes DESPUÉS de la imputación:")
-vis_miss(datos_imputados, warn_large_data = FALSE)
+# vis_miss(datos_imputados, warn_large_data = FALSE)
 ```
 
 ## Cálculo Final del ICA Diario por Estación
 
-Con los valores faltantes imputados, procedemos a calcular el ICA final para cada estación y día en el periodo seleccionado (2025-2025).
+Con los valores faltantes imputados, procedemos a calcular el ICA final para cada estación y día en el periodo seleccionado (2015-2025).
+Podemos observar la estructura final de este subdataset a continuación:
 
 ```{r}
 datos_ica_final <- datos_imputados %>%
@@ -755,14 +816,13 @@ datos_ica_final <- datos_imputados %>%
       ICA == 3 ~ "Regular",
       ICA == 4 ~ "Desfavorable",
       ICA == 5 ~ "Muy desfavorable",
-      ICA == 6 ~ "Extremadamente Desfavorable",
+      ICA == 6 ~ "Extremadamente desfavorable",
       TRUE ~ NA_character_ #no debería ocurrir ya que hemos imputado todos los valores
     )
   )
 
-# Mostrar un resumen del ICA final
-print(head(datos_ica_final))
-
+# Mostrar un resumen del ICA final, solo las 3 primeras filas, pero con los nombres de variables tb, una pequeña tabla
+#print(head(datos_ica_final %>% select(Fecha, Estacion, all_of(contaminantes_criticos), ICA, Categoria_ICA), 3))
 
 # Guardar el dataset final con ICA calculado
 write.table(datos_ica_final, 
@@ -770,21 +830,20 @@ write.table(datos_ica_final,
           row.names = FALSE, 
           sep=";",
           quote = FALSE)
-cat(paste("Dataset ICA final guardado con", nrow(datos_ica_final), "registros.\n"))
+cat(paste("Dataset ICA final guardado con", ncol(datos_ica_final), "columnas y",nrow(datos_ica_final), "registros.\n"))
 ```
 
 # Creación del Dataset Analítico Agregado para el análisis de correlación
 
 En este capítulo, explicamos cómo se construyó el dataset analítico agregado que se utilizará para el análisis de correlación entre el ICA y las variables meteorológicas y de fuentes de contaminación.
-Este dataset es esencial para responder a las preguntas explicativas planteadas en la introducción.
+Este subdataset es esencial para analizar relaciones entre el ICA y el resto de variables del conjunto de datos.
 
 ## Exploración de Cobertura de Datos y Filtrado para las Variables Explicativas
 
-Primero, cargamos el dataset final con el ICA calculado y exploramos la cobertura de datos para las variables meteorológicas y de fuentes de contaminación disponibles en el dataset original.
-El objetivo es crear un dataset de análisis (con todas las variables meteorológicas, ruido, etc.) pero que solo contenga las filas (días/estaciones) para las que logramos calcular un ICA.
-Como se ha mencionado, el ICA está calculado para las 5 estaciones, pero la Temperatura o el Ruido se miden en otras estaciones posiblemente.
-
-Primero cargamos los datos crudos para recuperar todas las variables meteorológicas y de fuentes de contaminación, y el dataset del ICA finalmente calculado.
+Para analizar la correlación entre el ICA y factores externos, fue necesario construir un dataset analítico agregado.
+El desafío es que las variables explicativas (como la meteorología o indicadores de tráfico) no se miden necesariamente en las mismas 5 estaciones donde se calculó el ICA.
+Por lo tanto, el objetivo fue seleccionar la estación fuente más fiable para cada variable explicativa y usarla como representante de la ciudad.
+Para tomar esta decisión, se analizó la cobertura de datos para cada variable en cada estación durante el periodo de estudio (2015-2025).
 
 ```{r}
 datos_crudos <- read.csv("../data/datos_meteorologicos_limpios.csv", sep = ";", header = TRUE)
@@ -810,10 +869,7 @@ datos_ica <- datos_ica %>%
   )
 ```
 
-Para analizar qué estaciones cubren qué variables vamos a seguir el mismo proceso que el empleado anteriormente con los contaminantes del ICA: obtenemos una tabla que nos muestre, para cada estación, qué porcentaje de datos tiene para cada variable.
-Así podremos decidir con fundamento para cada variable, que estación escogeremos, debido a su alta cobertura.
-
-```{r}
+```{r, fig.cap="Matriz de Cobertura de Variables Explicativas por Estación",fig.pos = "!h"}
 # Variables meteorológicas y de fuentes de contaminación a analiza
 total_dias_unicos_periodo <- n_distinct(datos_crudos$Fecha, na.rm = TRUE)
 
@@ -844,8 +900,8 @@ cobertura_por_estacion <- datos_crudos %>%
   ungroup() %>%
   arrange(desc(total_filas_en_estacion))
 
-print("--- MATRIZ DE COBERTURA (% de datos NO NULOS respecto al total de días del periodo) ---")
-print(cobertura_por_estacion)
+# print("--- MATRIZ DE COBERTURA (% de datos NO NULOS respecto al total de días del periodo) ---")
+# print(cobertura_por_estacion)
 
 #Visualización (Heatmap de Cobertura) 
 #debemos crear un formato largo para ggplot en el que cada fila sea una combinación Estacion-Variable 
@@ -862,8 +918,6 @@ ggplot(cobertura_largo, aes(x = Variable, y = Estacion, fill = Porcentaje)) +
   geom_text(aes(label = paste0(round(Porcentaje, 0), "%")), size = 3) +
   scale_fill_gradient(low = "red", high = "green", limits = c(0, 100)) + 
   labs(
-    title = "Gráfico X: Mapa de Cobertura de Variables por Estación",
-    subtitle = "Porcentaje de cobertura respecto al TOTAL de días del periodo (2015-2025)",
     x = "Variable Medida",
     y = "Estación de Medición"
   ) +
@@ -871,13 +925,11 @@ ggplot(cobertura_largo, aes(x = Variable, y = Estacion, fill = Porcentaje)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-Del análisis de cobertura, seleccionamos las estaciones con mejor cobertura para cada variable explicativa.
-Estas estaciones serán nuestras "fuentes" para construir el dataset analítico agregado: - Para las variables meteorológicas (Temperatura, Velocidad del viento, Precipitación, Radiación solar): la estación Conselleria Meteo tiene una cobertura excelente \<98% para todas las variables.
-Es la única opción fiable.
-- Para el ozono ($O_3$): Politécnico tiene una cobertura del 96%, siendo la mejor opción disponible.
-- Para el tráfico ($NO_x$, $PM_{10}$, $Ruido$): Podemos elegir Pista Silla.
-
-Vemos que la cobertura para el $Ruido$ es del 71% en la Pista de Silla, pero del gráfico de la variable en el tiempo (apartado 3.1) ya vimos que solo se registró hasta 2022, luego se debió romper el sensor o algún incidente debió ocurrir para que no se registrará más, por lo que, aunque sería interesante estudiar su correlación con el ICA, no la incluiremos en el análisis final.
+De el `heatmap` se observa que para las variables de meteorología, la estación Conselleria Meteo tiene una cobertura \>98% para todas las variables meteorológicas, por lo que es la fuente idónea.
+Para el tráfico, la estación Pista Silla ofrece la mejor cobertura para los contaminantes considerados $NO_x$ y $PM_{10}$.
+Para el Ozono el Politecnico es la fuente más completa (96%).
+Y por último, se observa que la cobertura de Ruido es del 71% en 'Pista Silla', pero como se vio en el análisis de tendencias (Figura 2), el registro se interrumpe en 2022.
+Por tanto, se excluye esta variable del análisis de correlación final.Basado en esto, se extrajeron las series temporales de estas estaciones fuente, se promedió el ICA de las 5 estaciones para obtener un valor diario de la ciudad, y se unió todo en un único dataset analítico "ancho", con una fila por día y todas las variables explicativas junto al ICA diario promedio.
 
 ```{r}
 # Definir las estaciones fuente para cada variable
@@ -897,8 +949,6 @@ ozono_data <- datos_crudos %>%
   select(Fecha, O3)
 ```
 
-Obtenemos el ICA diario promedio de las 5 estaciones para tener una medida representativa de la calidad del aire en la ciudad.
-
 ```{r}
 ica_por_dia <- datos_ica %>%
   group_by(Fecha) %>%
@@ -906,45 +956,51 @@ ica_por_dia <- datos_ica %>%
 
 ```
 
-Finalmente, ensamblamos todas las variables en un único dataset "ancho", con una fila por día y todas las variables explicativas junto al ICA diario promedio.
-
 ```{r}
 # Unir todas las variables en un único dataset por Fecha
 datos_analiticos <- ica_por_dia %>%
   left_join(meteo_data, by = "Fecha") %>%
   left_join(trafico_data, by = "Fecha") %>%
   left_join(ozono_data, by = "Fecha")
+
+# Mostrar un resumen del dataset, solo las 3 primeras filas
+#variables_finales <- setdiff(variables_explicativas, "Ruido")
+
+#print(head(datos_analiticos %>% select(Fecha, ICA_diario_avg, all_of(variables_finales)), 3))
+
+cat(paste("Dataset analítico creado con", nrow(datos_analiticos), "registros y", ncol(datos_analiticos), "variables.\n"))
 ```
 
 ## Detección y Tratamiento de Outliers en el Dataset Analítico
 
 De la misma manera que antes, exploramos los posibles valores atípicos en el dataset analítico resultante para decidir cómo tratarlos.
 
-```{r}
+```{r,fig.cap="Boxplots de Variables Explicativas en el Dataset Analítico",fig.pos = "!h",fig.asp=0.8,out.width = "70%"}
+
 # Boxplots para cada variable en el dataset analítico
 
-variables_analiticas <- names(datos_analiticos)[-1]  # Excluir la columna Fecha
+variables_analiticas <- names(datos_analiticos)[-1] # Excluir la columna Fecha
 
-par(mfrow = c(3, 3))  # Configurar la ventana gráfica
+par(mfrow = c(3, 3)) # Configurar la ventana gráfica
+
 for (variable in c(variables_analiticas)) {
   boxplot(datos_analiticos[[variable]], main = paste("Boxplot de", variable), ylab = "Valor")
+
 }
-par(mfrow = c(1, 1))  # Resetear la ventana gráfica
+par(mfrow = c(1, 1))# Resetear la ventana gráfica
 ```
 
 De nuevo, observamos que los valores atípicos no son de magnitud imposible para las variables, simplemente podrían tratarse de días de más o menos contaminación o condiciones meteorológicas extremas, por lo que los dejaremos tal y como están.
-Salvo un valor de precipitación extremadamente alto (más de 600 mm en un día), que parece un error de registro, por lo que lo sustituiremos por NA para que sea imputado posteriormente.
 
-Podríamos penasar que ese valor fue durante la DANA el 29 de octubre de 2024, sin embargo, si lo localizamos en el dataset:
+Salvo un valor de precipitación extremadamente alto (más de 600 mm en un día), que parece un error de registro, por lo que lo sustituiremos por `NA` para que sea imputado posteriormente.
+
+Podríamos pensar que ese valor fue durante la DANA el 29 de octubre de 2024, sin embargo, si lo localizamos en el dataset vemos que no corresponde a esa fecha, sino al 27 de septiembre de 2022, por lo que parece un error de registro, Así que lo sustituimos por `NA`.
 
 ```{r}
-datos_analiticos %>%
-  filter(Precipitacion > 500) %>%
-  print()
+#datos_analiticos %>%
+  # filter(Precipitacion > 500) %>%
+  # print()
 ```
-
-vemos que no corresponde a esa fecha, sino al 27 de septiembre de 2022, por lo que parece un error de registro.
-Así que lo sustituimos por NA:
 
 ```{r}
 datos_analiticos <- datos_analiticos %>%
@@ -957,21 +1013,19 @@ datos_analiticos <- datos_analiticos %>%
 ## Imputación Final de Valores Faltantes en las Variables Explicativas
 
 Analizamos los valores faltantes en las variables explicativas seleccionadas.
-Aplicamos nuevamente la imputación de Kalman para asegurar que el dataset final esté completo.
 
-```{r}
+```{r, fig.cap="Visualización de Valores Faltantes en el Dataset Analítico",fig.pos = "!h",fig.asp=0.5,out.width="60%"}
 vis_miss(datos_analiticos, warn_large_data = FALSE)
 ```
 
 En el gráfico, los datos mostrados presentan un patrón de ausencia no aleatoria: los huecos aparecen en bloques horizontales que afectan simultáneamente a varias variables, sobre todo entre variables meteorológicas o de tráfico, por separado.
-Esto indica un fallo sistemático como por ejemplo, la interrupción del registro en una estación o mantenimiento del sensor.
-Por tanto, los valores faltantes pueden explicarse por variables observadas (como la estación o la falta simultánea en otros contaminantes), se clasifican como MAR (Missing At Random).
+Esto indica un fallo sistemático como por ejemplo, la interrupción del registro en una estación o mantenimiento del sensor. Por tanto, los valores faltantes pueden explicarse por variables observadas (como la estación o la falta simultánea en otros contaminantes), se clasifican como MAR.
 
 Aplicamos la imputación de Kalman a todas las variables explicativas en el dataset analítico.
 
 ```{r}
 dataset_meteo_imputado <- na_kalman(datos_analiticos, model = "StructTS")
-vis_miss(dataset_meteo_imputado, warn_large_data = FALSE)
+#vis_miss(dataset_meteo_imputado, warn_large_data = FALSE)
 ```
 
 Finalmente, guardamos el dataset analítico completo y listo para el análisis entre variables posterior.
@@ -983,15 +1037,15 @@ write.table(dataset_meteo_imputado,
           row.names = FALSE,
           sep=";",
           quote = FALSE)
+
+
 cat(paste("Dataset analítico final guardado con", nrow(dataset_meteo_imputado), "registros.\n"))
 ```
 
 # Resultados
 
-Los pasos anteriores de preparación yde datos nos han permitido crear dos datasets limpios y completos que emplearemos para responder a las preguntas planteadas en la introducción.
+Los pasos anteriores de preparación yde datos nos han permitido crear dos datasets limpios y completos que emplearemos para responder a los análisis planteados en la introducción.
 En este capítulo, presentamos los resultados obtenidos a partir del análisis descriptivo del ICA y su correlación con las variables explicativas seleccionadas.
-
-En primer lugar, debemos asegurarnos de tener cargados los datasets.
 
 ```{r}
 # Cargar el dataset final con ICA calculado
@@ -1017,7 +1071,7 @@ El primer análisis se centra en describir la distribución y patrones del Índi
 
 Graficamos la distribución general del ICA, con tal de determinar que días son más frecuentes, si los de buena, moderada o mala calidad.
 
-```{r}
+```{r, fig.cap="Distribución del Índice de Calidad del Aire (ICA) por Categoría (2015-2025)",fig.pos = "!h",fig.asp=0.5}
 
 #sacamos el porcentaje de días por categoría del ICA
 distribucion_ica <- datos_ica_final %>%
@@ -1032,34 +1086,47 @@ distribucion_ica <- datos_ica_final %>%
 
 #ordenamos las categorías del ICA para el gráfico
 distribucion_ica$Categoria_ICA <- factor(distribucion_ica$Categoria_ICA, 
-                                         levels = c("Buena", "Razonablemente buena", "Regular", "Desfavorable", "Muy desfavorable", "Extremadamente Desfavorable"))
+                                         levels = c("Buena", "Razonablemente buena", "Regular", "Desfavorable", "Muy desfavorable", "Extremadamente desfavorable"))
+
+# Definir la paleta de colores personalizada
+colores_ica <- c(
+  "Buena" = "cyan",           # Azul Cielo
+  "Razonablemente buena" = "green", # Verde 
+  "Regular" = "gold",          # Amarillo
+  "Desfavorable" = "red",    # Rojo 
+  "Muy desfavorable" = "darkred",  # Granate 
+  "Extremadamente desfavorable" = "darkorchid4" # Morado oscuro 
+)
 
 # Gráfico de barras de la distribución del ICA por categoría según % de días
 ggplot(distribucion_ica, aes(x = Categoria_ICA, y = Porcentaje, fill = Categoria_ICA)) +
-  geom_bar(stat = "identity") +
+  geom_bar(stat = "identity", color=c()) +
   geom_text(aes(label = paste0(round(Porcentaje, 1), "%")), vjust = -0.5) +
   labs(
-    title = "Distribución del Índice de Calidad del Aire (ICA) por Categoría",
     x = "Categoría del ICA",
     y = "Porcentaje de Días"
   ) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))+
   #ocultar leyenda porque ya está en el eje x
-  theme(legend.position = "none")
+  theme(legend.position = "none")+
+  # Asignar los colores manualmente
+  scale_fill_manual(values = colores_ica) +
+  # Asegurar el orden de las categorías si no lo están ya
+  scale_x_discrete(limits = names(colores_ica))
 ```
 
 Como era de esperar, del gráfico de barras se observa que la mayoría de los días tienen una calidad del aire buena o razonablemente buena, con un porcentaje mucho más bajo de días con calidad regular o desfavorable.
-De hecho, la última categoría de "Extremadamente Desfavorable" no cuenta con ningún registro.
+De hecho, la última categoría de "Extremadamente desfavorable" no cuenta con ningún registro.
 Esto indica que, en general, la calidad general del aire en Valencia, según los datos de las 5 estaciones consideradas entre 2015 y 2025, es predominantemente buena.
 
 ### Análisis bivariante del ICA
 
 En un segundo análisis, exploramos los patrones temporales y espaciales del ICA para identificar tendencias y variaciones significativas a lo largo del tiempo y entre las estaciones.
 
-#### Análisis temporal
+#### **Análisis Temporal**
 
-En este apartado, analizamos cómo ha evolucionado el ICA a lo largo del tiempo, identificando tendencias generales y patrones específicos durante eventos relevantes como el confinamiento por la pandemia de COVID-19.
+Primero, analizamos cómo ha evolucionado el ICA a lo largo del tiempo, identificando tendencias generales y patrones específicos durante eventos relevantes como el confinamiento por la pandemia de COVID-19.
 
 ```{r}
 #Agrupamos por fecha para obtener el ICA promedio diario
@@ -1079,25 +1146,15 @@ ica_mensual <- ica_diario %>%
     .groups = 'drop'
   )
 
-# Gráfico de lineas del ICA promedio mensual
-ggplot(ica_mensual, aes(x = Mes, y = ICA_mensual_avg)) +
-  geom_line(color = "blue", linewidth = 1) +
-  geom_point(color = "blue") +
-  labs(
-    title = "Índice de Calidad del Aire (ICA) Promedio Mensual (2015-2025)",
-    x = "Mes",
-    y = "ICA Promedio Mensual"
-  ) +
-  scale_x_date(date_breaks = "2 month",date_labels = "%b") +
-  theme_minimal()
-```
+meses <- c("Ene", "Feb", "Mar", "Abr", "May", "Jun",
+           "Jul", "Ago", "Sep", "Oct", "Nov", "Dic")
 
-Analizando el gráfico de líneas del ICA promedio mensual, podemos observar un patrón estacional claro en la calidad del aire en Valencia.
-Los meses de invierno (diciembre a febrero) tienden a mostrar valores más altos de ICA, indicando una peor calidad del aire, posiblemente debido a factores como la inversión térmica y el aumento de las emisiones por calefacción.
-En contraste, los meses de verano (junio a agosto) presentan los valores más bajos de ICA, reflejando una mejor calidad del aire, probablemente influenciada por condiciones meteorológicas favorables y una menor actividad industrial y de vehículos en la ciudad.
+# Convertir a factor ordenado
+ica_mensual$Mes <- factor(ica_mensual$Mes,
+                          levels = 1:12,
+                          labels = meses)
 
-```{r}
-
+#para el anual
 ica_anual <- ica_diario %>%
   mutate(Anio = year(Fecha)) %>%
   group_by(Anio) %>%
@@ -1106,30 +1163,53 @@ ica_anual <- ica_diario %>%
     .groups = 'drop'
   )
 
-# Gráfico de líneas del ICA promedio anual
-ggplot(ica_anual, aes(x = Anio, y = ICA_anual_avg)) +
-  geom_line(color = "blue", linewidth = 1) +
-  geom_point(color = "blue") +
-  #calculamos una línea de tendencia suavizada para ver la tendencia a lo largo de la década
-  #utilizamos el método lm (regresión lineal), se=FALSE para no mostrar el intervalo de confianza
-  geom_smooth(method = "lm", se = FALSE, color = "red", linetype = "dashed") +
-  labs(
-    title = "Tendencia del Índice de Calidad del Aire (ICA) Promedio Anual (2015-2025)",
-    x = "Año",
-    y = "ICA Promedio Anual"
-  ) +
-  theme_minimal()+scale_x_continuous(breaks = seq(min(ica_anual$Anio), max(ica_anual$Anio), by = 1))
-
-
 ```
 
+```{r, fig.cap="Evolución Temporal del Índice de Calidad del Aire (ICA) Promedio Mensual y Anual (2015-2025)",fig.pos = "!h",fig.asp=0.5,out.width="80%"}
+
+library(patchwork)
+
+# --- Gráfico 1: mensual ---
+p1 <- ggplot(ica_mensual, aes(x = Mes, y = ICA_mensual_avg, group = 1)) +
+  geom_line(color = "blue", linewidth = 1) +
+  geom_point(color = "blue") +
+  geom_smooth(method = "loess", se = FALSE, color = "red", linetype = "dashed") +
+  #breaks de 2 meses
+  scale_x_discrete(breaks = meses[seq(1, 12, by = 2)]) +
+  labs(
+    x = "Mes",
+    y = "ICA Promedio Mensual",
+    caption = "Figura a) Evolución mensual del ICA (2015–2025)"
+  ) +
+  theme_minimal() +
+  theme(plot.caption = element_text(hjust = 0.5, face = "italic"))
+
+# --- Gráfico 2: anual ---
+p2 <- ggplot(ica_anual, aes(x = Anio, y = ICA_anual_avg)) +
+  geom_line(color = "blue", linewidth = 1) +
+  geom_point(color = "blue") +
+  geom_smooth(method = "lm", se = FALSE, color = "red", linetype = "dashed") +
+  labs(
+    x = "Año",
+    y = "ICA Promedio Anual",
+    caption = "Figura b) Evolución anual del ICA (2015–2025)"
+  ) +
+  theme_minimal() +
+  scale_x_continuous(breaks = seq(min(ica_anual$Anio), max(ica_anual$Anio), by = 2)) +
+  theme(plot.caption = element_text(hjust = 0.5, face = "italic"))
+
+# --- Combinar lado a lado ---
+p1 + p2
+
+```
+Analizando el gráfico de líneas del ICA promedio mensual, podemos observar un patrón estacional claro en la calidad del aire en Valencia. Los meses de invierno (diciembre a febrero) tienden a mostrar valores más altos de ICA, indicando una peor calidad del aire, posiblemente debido a factores como la inversión térmica y el aumento de las emisiones por calefacción. En contraste, los meses de verano (junio a agosto) presentan los valores más bajos de ICA, reflejando una mejor calidad del aire, probablemente influenciada por condiciones meteorológicas favorables y una menor actividad industrial y de vehículos en la ciudad.
+
 Como se observa, el ICA promedio anual muestra una tendencia general que disminuye a lo largo del periodo 2015-2025, indicando una pequeña mejora la calidad del aire en Valencia.
-El eje Y varía de aproximadamente 2.25 a 2.0 en los últimos años indicando una mejora gradual aunque muy leve en la calidad del aire.
-Realmente dado que estamos en 2025 y nuestros registros únicamente son hasta agosto, el valor promedio anual que aumenta con respecto a 2024 no es fiable todavía, poríamos analizarlo al contar con los registros hasta final de año.
+El eje Y varía de aproximadamente 2.25 a 2.0 en los últimos años indicando una mejora gradual aunque muy leve en la calidad del aire. Realmente dado que estamos en 2025 y nuestros  registros únicamente son hasta agosto, el valor promedio anual que aumenta con respecto a 2024 no es fiable todavía, poríamos analizarlo al contar con los registros hasta final de año.
 
 En cuanto al periodo del confinamiento por la pandemia de COVID-19 (marzo-junio 2020), podríamos sostener la hipótesis de que hubo una caída drástica en el ICA debido a la reducción significativa de las actividades humanas y el tráfico durante ese tiempo.
 
-```{r}
+```{r, fig.cap="Evolución Temporal del Índice de Calidad del Aire (ICA) Promedio Mensual con Resalte del Confinamiento por COVID-19 (2019-2021)",fig.pos = "!h",fig.asp=0.5,out.width="65%"}
 #Calcular el ICA promedio para CADA mes a partir del promedio por estación
 ica_meses <- ica_diario %>% 
     filter(
@@ -1165,13 +1245,12 @@ ggplot(ica_meses, aes(x = Fecha_Mes, y = ICA_promedio_mensual)) +
            size = 3.5) +
   
   labs(
-    title = "Evolución Temporal del ICA Promedio Mensual durante el COVID-19 (2020-2021)",
     x = "Fecha",
     y = "ICA Promedio Mensual (1 = Mejor, 6 = Peor)"
   ) +
   scale_x_date(
-      # Ponemos un 'break' cada mes
-      date_breaks = "1 month",  
+      # Ponemos un 'break' cada 2 mes
+      date_breaks = "2 month",  
       # FORMATO: %b (Mes abr.) %Y (Año) -> "Ene 2020"
       date_labels = "%b %Y"      
   ) +
@@ -1182,17 +1261,16 @@ ggplot(ica_meses, aes(x = Fecha_Mes, y = ICA_promedio_mensual)) +
   )
 ```
 
-Si observamos el gráfico, justo el mes antes del antes del confinamiento, el ICA promedio mensual era de aproximadamente 2.5.
-Sin embargo, justo antes de entrar en el confinamiento en marzo de 2020, el ICA cae a alrededor de 2.0.
+Si observamos el gráfico, justo el mes antes del antes del confinamiento, el ICA promedio mensual era de aproximadamente 2.5. Sin embargo, justo antes de entrar en el confinamiento en marzo de 2020, el ICA cae a alrededor de 2.0.
 Durante el periodo de confinamiento (marzo a junio de 2020), el ICA se mantiene bajo, alrededor de 1.9, pudiendo deberse a la reducción del tráfico y las actividades industriales, podría ser un punto a estudiar.
 Si lo comparamos con los mismos meses del año anterior, los valores estaban alrededor de 2.2, un poco más altos.
 A principios del 2021, el ICA vuelve a aumentar nuevamente hasta 2.3 aprox.
 
-#### Análisis espacial
+#### **Análisis espacial**
 
 En este apartado, analizamos cómo varía el ICA entre las diferentes estaciones de medición para identificar áreas con peor calidad del aire o si la calidad es uniforme en toda la ciudad.
 
-```{r}
+```{r, fig.cap="Proporción de Días con Calidad del Aire 'Mala' vs 'Aceptable' por Estación (2015-2025)",fig.pos = "!h",fig.asp=0.5}
 # Calculamos la proporción de días "Malos" (ICA >= 4) vs "Aceptables" (ICA < 4) por estación
 ica_estacion <- datos_ica_final %>%
   mutate(
@@ -1221,7 +1299,6 @@ ggplot(ica_estacion, aes(x = Estacion, y = Proporcion, fill = Categoria_Simplifi
     size = 3
   ) +
   labs(
-    title = "Proporción de Días con Calidad del Aire 'Malos' vs 'Aceptables' por Estación (2015–2025)",
     x = "Estación",
     y = "Proporción de Días (%)",
     fill = "Categoría"
@@ -1231,13 +1308,12 @@ ggplot(ica_estacion, aes(x = Estacion, y = Proporcion, fill = Categoria_Simplifi
 
 ```
 
-Analizando el gráfico de barras apiladas, podemos observar que aen todas las estaciones la mayoría de registros son de buena calidad.La estación con peor calidad del aire es Moli del Sol con casi el 10% de registros de mala calidad, seguida de la ubicada en la Pista de Silla con un aprox.
-8%.
+Analizando el gráfico de barras apiladas, podemos observar que aen todas las estaciones la mayoría de registros son de buena calidad.La estación con peor calidad del aire es Moli del Sol con casi el 10% de registros de mala calidad, seguida de la ubicada en la Pista de Silla con un aprox. 8%.
 Estas dos estaciones se localizan en zonas con alta densidad de tráfico rodado y actividad industrial, lo que explica la mayor concentración de contaminantes primarios y, por tanto, un ICA más elevado.
 
 Por último, analizamos las diferencias en la calidad entre los días laborables y los fines de semana.
 
-```{r}
+```{r, fig.cap="Comparación del Índice de Calidad del Aire (ICA) Promedio: Días Laborables vs Fines de Semana (2015-2025)",fig.pos = "!h",fig.asp=0.5, out.width="65%"}
 # Añadimos una columna para identificar días laborables y fines de semana
 datos_ica_final <- datos_ica_final %>%
   mutate(
@@ -1255,23 +1331,29 @@ ica_dia_tipo <- datos_ica_final %>%
   )
 
 # Gráfico de barras del ICA promedio por tipo de día
-ggplot(ica_dia_tipo, aes(x = Dia_Semana, y = ICA_promedio, fill = Dia_Semana)) +
+ggplot(ica_dia_tipo, aes(x = ICA_promedio , y = Dia_Semana, fill = Dia_Semana)) +
   geom_bar(stat = "identity") +
-  geom_text(aes(label = round(ICA_promedio, 2)), vjust = -0.5) +
+  geom_text(
+  aes(label = round(ICA_promedio, 2)), 
+  hjust = 0,          
+  nudge_x = 0.05,    
+  size = 4,
+  color = "black"     
+) +
+  scale_x_continuous(limits = c(0, 6))+
   labs(
-    title = "Índice de Calidad del Aire (ICA) Promedio: Días Laborables vs Fines de Semana (2015-2025)",
-    x = "Tipo de Día",
-    y = "ICA Promedio"
+    y = "Tipo de Día",
+    x = "ICA Promedio"
   ) +
   theme_minimal() +
   theme(legend.position = "none")
 ```
 
-No hay una diferencia significativa en el ICA promedio entre días laborables y fines de semana.
-Ambos tipos de días presentan un ICA promedio similar.
-Podemo también comparar 2 de los contaminantes principales del ICA, el $NO_2$ y el $O_3$, entre días laborables y fines de semana.
+No hay una diferencia significativa en el ICA promedio entre días laborables y fines de semana. Ambos tipos de días presentan un ICA promedio similar. .Sin embargo, es posible que haya diferencias en los niveles de contaminantes específicos debido a variaciones en las actividades humanas y el tráfico durante estos días.
 
-```{r}
+Por lo que podemos comparar 2 de los contaminantes principales del ICA, el $NO_2$ y el $O_3$, entre días laborables y fines de semana.
+
+```{r, fig.cap="Comparación de Concentraciones Promedio de NO2 y O3: Días Laborables vs Fines de Semana (2015-2025)",fig.pos = "!h",fig.asp=0.5}
 # Calculamos el promedio de NO2 y O3 por tipo de día
 contaminantes_dia_tipo <- datos_ica_final %>%
   group_by(Dia_Semana) %>%
@@ -1286,13 +1368,18 @@ contaminantes_dia_tipo <- datos_ica_final %>%
     values_to = "Promedio"
   )
 # Gráfico de barras para NO2 y O3 por tipo de día
-ggplot(contaminantes_dia_tipo, aes(x = Contaminante, y = Promedio, fill = Dia_Semana)) +
+ggplot(contaminantes_dia_tipo, aes(x = Promedio, y = Contaminante, fill = Dia_Semana)) +
   geom_bar(stat = "identity", position = "dodge") +
-  geom_text(aes(label = round(Promedio, 2)), position = position_dodge(width = 0.9), vjust = -0.5) +
+  geom_text(
+  aes(label = round(Promedio, 2)), 
+  position = position_dodge(width = 0.9),  # <-- Mantiene el dodge
+  hjust = -0.2,   # <-- Lo empuja a la derecha (fuera de la barra)
+  size = 3.5      # Ajusta el tamaño si es necesario
+) +
+  scale_x_continuous(limits = c(0, 60))+
   labs(
-    title = "Promedio de NO2 y O3: Días Laborables vs Fines de Semana (2015-2025)",
-    x = "Contaminante",
-    y = "Concentración Promedio"
+    y = "Contaminante",
+    x = "Concentración Promedio"
   ) +
   theme_minimal()
 ```
@@ -1310,7 +1397,7 @@ El objetivo es identificar qué factores influyen más significativamente en la 
 
 Por un lado, podemos analizar la correlación entre el ICA y las diferentes variables meteorológicas seleccionadas: Temperatura, Velocidad del Viento, Precipitación y Radiación Solar.
 
-```{r}
+```{r,fig.cap="Matriz de Correlación entre el Índice de Calidad del Aire (ICA) y Variables Meteorológicas (2015-2025)",fig.pos = "!h",results='hide',fig.asp=0.5}
 # Seleccionamos las columnas relevantes del dataset analítico
 variables_meteorologicas <- datos_analiticos %>%
   select(ICA_diario_avg, Temperatura, Velocidad.del.viento, Precipitacion, Radiacion.solar)
@@ -1324,8 +1411,7 @@ ggcorrplot(
   #colores de la escala
   colors = c("red", "white", "green"),
   lab = TRUE, 
-  title = "Correlaciones entre ICA y Variables Meteorológicas (Pearson)",
-  lab_size = 4)
+  lab_size = 3)
 
 ```
 
@@ -1334,7 +1420,7 @@ Resulta evidente la alta correlación entre la temperatura y la radiación solar
 
 Como punto extra a analizar, podemos explorar como la temperatura y la radiación solar influyen en los niveles de ozono ($O_3$), un contaminante secundario que se forma por reacciones fotoquímicas a partir de $NO_2$ en presencia de luz.
 
-```{r}
+```{r,fig.cap="Matriz de Correlación entre Ozono (O3), Temperatura y Radiación Solar (2015-2025)",fig.pos = "!h",results='hide',fig.asp=0.5}
 # Seleccionamos las columnas relevantes del dataset analítico
 variables_ozono <- datos_analiticos %>%
   select(O3, Temperatura, Radiacion.solar)
@@ -1347,45 +1433,69 @@ ggcorrplot(
   #colores de la escala
   colors = c("red", "white", "green"),
   lab = TRUE, 
-  title = "Correlaciones entre O3 y Variables Meteorológicas (Pearson)",
   lab_size = 4
 )
-
-#Gráficos de dispersión para visualizar la relación entre O3 y Temperatura/Radiación Solar
-ggplot(datos_analiticos, aes(x = Temperatura, y = O3)) +
-  geom_point(alpha = 0.4, color = "lightblue") +
-  geom_smooth(method = "lm", se = FALSE, color = "red") +
-  theme_minimal(base_size = 11) +
-  labs(
-    title = "Relación entre Temperatura y Ozono",
-    x = "Temperatura (ºC)",
-    y = "O3 (µg/m3)"
-  )
-
-ggplot(datos_analiticos, aes(x = Radiacion.solar, y = O3)) +
-  geom_point(alpha = 0.4, color = "gold") +
-  geom_smooth(method = "lm", se = FALSE, color = "red") +
-  theme_minimal(base_size = 11) +
-  labs(
-    title = "Relación entre Radiación Solar y Ozono",
-    x = "Radiación solar (W/m²)",
-    y = "O3 (µg/m3)"
-  )
-
-
-
-
 ```
+
+<!-- # ```{r,fig.cap="Gráficos de Dispersión entre Ozono (O3) y Variables Meteorológicas (2015-2025)",fig.pos = "!h"} -->
+
+<!-- # #Gráficos de dispersión para visualizar la relación entre O3 y Temperatura/Radiación Solar -->
+
+<!-- # ggplot(datos_analiticos, aes(x = Temperatura, y = O3)) + -->
+
+<!-- #   geom_point(alpha = 0.4, color = "lightblue") + -->
+
+<!-- #   geom_smooth(method = "lm", se = FALSE, color = "red") + -->
+
+<!-- #   theme_minimal(base_size = 11) + -->
+
+<!-- #   labs( -->
+
+<!-- #     title = "Relación entre Temperatura y Ozono", -->
+
+<!-- #     x = "Temperatura (ºC)", -->
+
+<!-- #     y = "O3 (µg/m3)" -->
+
+<!-- #   ) -->
+
+<!-- # ``` -->
+
+<!-- #  -->
+
+<!-- # ```{r,fig.cap="Gráficos de Dispersión entre Ozono (O3) y Variables Meteorológicas (2015-2025)",fig.pos = "!h"} -->
+
+<!-- # ggplot(datos_analiticos, aes(x = Radiacion.solar, y = O3)) + -->
+
+<!-- #   geom_point(alpha = 0.4, color = "gold") + -->
+
+<!-- #   geom_smooth(method = "lm", se = FALSE, color = "red") + -->
+
+<!-- #   theme_minimal(base_size = 11) + -->
+
+<!-- #   labs( -->
+
+<!-- #     x = "Radiación solar (W/m²)", -->
+
+<!-- #     y = "O3 (µg/m3)" -->
+
+<!-- #   ) -->
+
+<!-- #  -->
+
+<!-- # ``` -->
 
 Como se observa en la matriz de correlación, el ozono ($O_3$) muestra una correlación positiva moderada con la radiación solar (0.57) y una correlación más débil con la temperatura pero también positiva (0.37).
 Esto indica que a medida que aumentan la temperatura y la radiación solar, los niveles de ozono tienden a incrementarse, lo cual es consistente con el conocimiento científico sobre la formación de ozono troposférico a través de reacciones fotoquímicas.
 
+<!-- De los gráficos de dispersión, se observa una tendencia clara de aumento de los niveles de ozono con el incremento de la temperatura y la radiación solar, reforzando la conclusión de que estos factores meteorológicos influyen significativamente en la concentración de ozono en el aire. -->
+
 ### Influencia de Fuentes de Contaminación
 
-Analizamos la correlación entre el ICA y las variables relacionadas con fuentes de contaminación, específicamente $NO_x$ y $PM_{10}$.
+Por último, analizamos la correlación entre el ICA y las variables relacionadas con fuentes de contaminación, específicamente $NO_x$ y $PM_{10}$.
 El $NO_x$ es un contaminante primario emitido principalmente por el tráfico vehicular, mientras que el $PM_{10}$ puede tener múltiples fuentes, incluyendo emisiones industriales y polvo en suspensión.
 
-```{r}
+```{r,fig.cap="Matriz de Correlación entre el Índice de Calidad del Aire (ICA) y Contaminantes Primarios (2015-2025)",fig.pos = "!h",results='hide',fig.asp=0.5}
 # Seleccionar variables de interés
 trafico_vars <- c("Fecha", "ICA_diario_avg", "NOx", "PM10")
 trafico_df <- datos_analiticos[, trafico_vars]
@@ -1398,16 +1508,14 @@ ggcorrplot(
   cor_matrix_trafico, 
   colors = c("red", "white", "green"),
   lab = TRUE, 
-  title = "Correlaciones entre contaminantes del tráfico (Pearson)",
   lab_size = 4
 )
 ```
 
 Analizando la matriz de correlación, podemos observar que tanto el $NO_x$ como el $PM_{10}$ muestran una correlación positiva moderada con el ICA.
 Esto confirma parcialmente lo que se conoce como "huella de tráfico" indicando que a medida que aumentan las concentraciones de estos contaminantes primarios, la calidad del aire empeora (ICA más alto).
-Concretamente la variable de partículas suspendidas de hasta 10 micrómetros tiene una correlación de un 0.59, lo cual es lógico ya que es una de las sustancias principales para el cálculo del índice.
-
-```{r}
+Concretamente la variable de partículas suspendidas de hasta $10\mu m$ tiene una correlación de un 0.59, lo cual es lógico ya que es una de las sustancias principales para el cálculo del índice. Como último análisis, se podría considerar la variación de estas sustancias a lo largo del tiempo para analizar sus tendencias y patrones estacionales, y así confirmar si su comportamiento temporal coincide con el de la actividad humana.
+```{r,fig.cap="Evolución Temporal de NOx y PM10 (2015-2025)",fig.pos = "!h",fig.asp=0.5}
 # Evolución temporal de NOx, PM10 agrupando por mes
 
 trafico_long <- trafico_df %>%
@@ -1418,16 +1526,16 @@ trafico_long <- trafico_df %>%
 
 ggplot(trafico_long, aes(x = Mes, y = Valor, color = Variable)) +
   geom_line(alpha = 0.7) +
-  labs(title = "Evolución temporal de NOx, PM10",
+  labs(
        x = "Fecha", y = "Nivel / Concentración") +
   theme_minimal() +
-  scale_x_date(date_breaks = "4 month", date_labels = "%b %Y") +
+  scale_x_date(date_breaks = "5 month", date_labels = "%b %Y") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 ```
 
-En la gráfica de líneas, podemos observar que tanto el $NO_x$ como el $PM_{10}$ presentan patrones estacionales similares, con picos más altos durante los meses de invierno y valores más bajos en verano.
-Esto puede estar relacionado con factores meteorológicos como la temperatura y la estabilidad atmosférica, que afectan la dispersión de los contaminantes.
+En la gráfica de líneas, podemos observar que tanto el $NO_x$ como el $PM_{10}$ presentan patrones estacionales similares, con picos más altos durante los meses de invierno y valores más bajos en verano. Esto puede estar relacionado con factores meteorológicos como la temperatura y la estabilidad atmosférica, que afectan la dispersión de los contaminantes.
+
 Además, se observa una tendencia general a la baja sobre todo en el $NO_x$ a lo largo del periodo 2015-2025, lo que podría indicar mejoras en las políticas de control de emisiones y la calidad del aire en Valencia.
 
 # Conclusiones
