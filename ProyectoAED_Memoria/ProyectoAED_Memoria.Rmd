@@ -1113,7 +1113,8 @@ ggplot(distribucion_ica, aes(x = Categoria_ICA, y = Porcentaje, fill = Categoria
   # Asignar los colores manualmente
   scale_fill_manual(values = colores_ica) +
   # Asegurar el orden de las categorías si no lo están ya
-  scale_x_discrete(limits = names(colores_ica))
+  scale_x_discrete(limits = names(colores_ica))+
+  scale_y_continuous(limits = c(0, 100))
 ```
 
 Como era de esperar, del gráfico de barras se observa que la mayoría de los días tienen una calidad del aire buena o razonablemente buena, con un porcentaje mucho más bajo de días con calidad regular o desfavorable.
