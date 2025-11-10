@@ -1,7 +1,8 @@
-Red: Red de Vigilancia y Control de la Contaminación AtmosféricaEstación: 46250043-València - Vivers
+Red: Red de Vigilancia y Control de la Contaminaci?n Atmosf?rica
+Estaci?n: 46250043-Val?ncia - Vivers
 	
 FECHA	PM2.5	As	Pb	Cd	SO2	NO	NO2	PM10	Ni	NOx	O3
-	µg/m³	ng/m³N	µg/m³	ng/m³N	µg/m³	µg/m³	µg/m³	µg/m³	ng/m³N	µg/m³	µg/m³
+	?g/m?	ng/m?N	?g/m?	ng/m?N	?g/m?	?g/m?	?g/m?	?g/m?	ng/m?N	?g/m?	?g/m?
 01/01/2023	15				4	5	17	23		24	23
 02/01/2023	19	0,28	0,01	0,1	3	7	23	26	1,55	33	16
 03/01/2023	22				3	16	29	30		53	12

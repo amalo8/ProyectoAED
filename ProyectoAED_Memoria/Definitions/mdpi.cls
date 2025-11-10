@@ -17,14 +17,14 @@
 %% %%		v2.0 when Dr. Janine Daum started (March 2013)
 %% %%		v3.0 layout change September 2015
 %%%%		v4.0 layout change December 2020
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% IDENTIFICATION
 \NeedsTeXFormat{LaTeX2e}
 \ProvidesClass{Definitions/mdpi}[12/09/2024 MDPI paper class]
 
  %% PRELIMINARY DECLARATIONS
-\LoadClass[10pt,a4paper]{article}
+\LoadClass[9pt,a4paper]{article}
 \RequirePackage[T1]{fontenc}
 \RequirePackage[utf8]{inputenc}
 \RequirePackage{calc}

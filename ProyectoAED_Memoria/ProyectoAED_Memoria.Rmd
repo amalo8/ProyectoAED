@@ -144,11 +144,11 @@ leer_datos_meteo <- function(ruta_archivo, nombre_estacion) {
   #   - nrows = 1 → lee solo la fila 4, donde están los nombres de las variables
   #   - Luego, skip = 5 → para leer los datos reales (a partir de la fila 6)
   nombres <- read.csv(ruta_archivo, sep="\t", dec=",", header=FALSE, skip=3, nrows=1, fileEncoding = "latin1")
-  datos <- read.csv(ruta_archivo, sep="\t", dec=",", header=FALSE, skip=5, fileEncoding = "latin1")
-  names(datos) <- nombres 
+  datos_archiv <- read.csv(ruta_archivo, sep="\t", dec=",", header=FALSE, skip=5, fileEncoding = "latin1")
+  names(datos_archiv) <- nombres 
   # Algunos archivos traen “FECHA” en mayúsculas, otros en minúsculas.
-  if ("FECHA" %in% names(datos)) {
-    datos <- datos %>% rename(Fecha = FECHA)
+  if ("FECHA" %in% names(datos_archiv)) {
+    datos_archiv <- datos_archiv %>% rename(Fecha = FECHA)
   }
   renombres <- c(
     Velocidad.del.viento = "Veloc.",
@@ -163,20 +163,20 @@ leer_datos_meteo <- function(ruta_archivo, nombre_estacion) {
   # Recorremos el diccionario y renombramos solo si la columna existe
   for (nuevo in names(renombres)) {
     viejo <- renombres[[nuevo]]
-    if (viejo %in% names(datos)) {
-      datos <- datos %>%
+    if (viejo %in% names(datos_archiv)) {
+      datos_archiv <- datos_archiv %>%
         rename_with(~nuevo, .cols = viejo) # Renombra la columna
     }
   }
   
   # --- Conversión de fechas y añadido del nombre de estación ---
-  datos <- datos %>%
+  datos_archiv <- datos_archiv %>%
     mutate(
       Fecha = dmy(Fecha),          # Convierte texto (DD/MM/YYYY) a formato Date
       Estacion = nombre_estacion   # Añade una columna con el nombre de la estación
     )
   
-  return(datos)
+  return(datos_archiv)
 }
 
 #Para leer todos los archivos de estaciones y años, definimos una lista con los códigos y nombres de las estaciones, y un vector con los años disponibles (2023-2025).
@@ -272,13 +272,13 @@ Primero, se descartaron columnas irrelevantes, como variables administrativas (I
 
 ```{r}
 # Carga del dataset combinado
-datos <- read.csv("../data/datos_combinados.csv", sep=",", header=TRUE, fileEncoding = "latin1")
+datos_comb <- read.csv("../data/datos_combinados.csv", sep=",", header=TRUE, fileEncoding = "latin1")
 
 #pasar fecha a date porque cuando se guarda en csv se pierde el formato date
-datos$Fecha <- as.Date(datos$Fecha)
+datos_comb$Fecha <- as.Date(datos_comb$Fecha)
 
 # Eliminación de columnas irrelevantes. Id (num fila), Dias de la semana, del mes, fechas de creación y baja.
-datos_limpios <- datos %>%
+datos_limpios <- datos_comb %>%
   select(-c(Id,Dia.de.la.semana, Dia.del.mes, Fecha.creacion, Fecha.baja, As, Pb, Cd, Ni, BaP)) %>%
 #Eliminar aquellas filas si las hay, cuya fecha o estacion tengan valor NA ya que no sabremos qué día o estación corresponde
   filter(!is.na(Fecha) & !is.na(Estacion)) %>%
@@ -295,7 +295,7 @@ El dataframe limpio se exportó a un archivo `.csv` para su uso en las siguiente
 
 ```{r}
 #contabilizar el numero de filas eliminadas
-n_filas_antes <- nrow(datos)
+n_filas_antes <- nrow(datos_comb)
 n_filas_despues <- nrow(datos_limpios)
 n_filas_eliminadas <- n_filas_antes - n_filas_despues
 
